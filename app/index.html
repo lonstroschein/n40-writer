@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N40 LinkedIn Content Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root {
+    --bg: #080810;
+    --bg-card: #0E0E1A;
+    --bg-input: #141422;
+    --gold: #D4A040;
+    --gold-light: #EDD070;
+    --gold-dim: #B09040;
+    --text: #F5EEE2;
+    --text-dim: #C8BCA8;
+    --text-faint: #7A7260;
+    --border: rgba(212,160,64,0.2);
+    --border-active: rgba(212,160,64,0.5);
+    --danger: #E05050;
+    --success: #50C878;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); }
+  .logo span { color: var(--text-dim); font-weight: 300; }
+  .header-right { display:flex; align-items:center; gap:20px; }
+  .header-date { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text-faint); }
+  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--danger); }
+  .status-dot.connected { background:var(--success); }
+
+  nav {
+    display: flex; gap: 0; padding: 0 48px;
+    border-bottom: 1px solid var(--border);
+  }
+  nav button {
+    background:none; border:none; padding:16px 28px; color:var(--text-dim);
+    font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500;
+    cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s;
+  }
+  nav button:hover { color:var(--text); }
+  nav button.active { color:var(--gold); border-bottom-color:var(--gold); }
+
+  main { max-width:1200px; margin:0 auto; padding:40px 48px; }
+  .section { display:none; }
+  .section.active { display:block; }
+
+  /* ─── CARDS & LAYOUT ─── */
+  .card {
+    background:var(--bg-card); border:1px solid var(--border);
+    border-radius:12px; padding:36px; margin-bottom:24px;
+  }
+  .card h2 {
+    font-size:13px; font-family:'DM Mono',monospace; color:var(--gold);
+    text-transform:uppercase; letter-spacing:2px; margin-bottom:8px;
+  }
+  .card .question { font-size:22px; font-weight:500; line-height:1.5; margin-bottom:8px; }
+  .card .hint {
+    font-size:14px; color:var(--text-faint); line-height:1.6;
+    margin-bottom:24px; font-style:italic;
+  }
+
+  textarea, input[type="text"] {
+    width:100%; background:var(--bg-input); border:1px solid var(--border);
+    border-radius:8px; padding:16px 20px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:16px; line-height:1.6;
+    resize:vertical; transition:border-color 0.2s;
+  }
+  textarea:focus, input[type="text"]:focus { outline:none; border-color:var(--border-active); }
+  textarea { min-height:120px; }
+
+  .topic-input { font-size:24px; padding:20px 24px; font-weight:500; background:var(--bg-card); }
+
+  .btn-row { display:flex; gap:12px; margin-top:24px; justify-content:flex-end; }
+  .btn {
+    padding:12px 32px; border-radius:8px; font-family:'DM Sans',sans-serif;
+    font-size:14px; font-weight:600; cursor:pointer; border:none; transition:all 0.2s;
+  }
+  .btn-primary { background:var(--gold); color:var(--bg); }
+  .btn-primary:hover { background:var(--gold-light); }
+  .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+  .btn-secondary { background:transparent; color:var(--text-dim); border:1px solid var(--border); }
+  .btn-secondary:hover { border-color:var(--border-active); color:var(--text); }
+  .btn-ghost { background:transparent; color:var(--text-faint); }
+  .btn-ghost:hover { color:var(--text-dim); }
+
+  /* ─── LOADING SPINNER ─── */
+  .loading { display:none; align-items:center; gap:12px; padding:20px 0; color:var(--gold); }
+  .loading.active { display:flex; }
+  .spinner {
+    width:20px; height:20px; border:2px solid var(--border);
+    border-top-color:var(--gold); border-radius:50%;
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ─── STEP INDICATOR ─── */
+  .step-indicator { display:flex; gap:8px; margin-bottom:40px; }
+  .step-dot { width:48px; height:4px; border-radius:2px; background:var(--bg-input); transition:background 0.3s; }
+  .step-dot.complete { background:var(--gold); }
+  .step-dot.current { background:var(--gold-light); }
+
+  /* ─── TWO COLUMN LAYOUT ─── */
+  .two-col { display:grid; grid-template-columns:1fr 360px; gap:32px; }
+  .sidebar { position:sticky; top:40px; align-self:start; }
+  .sidebar h3 {
+    font-size:13px; font-family:'DM Mono',monospace; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:2px; margin-bottom:16px;
+  }
+  .answer-item {
+    background:var(--bg-input); border-radius:8px; padding:16px;
+    margin-bottom:12px; border-left:3px solid var(--gold-dim);
+  }
+  .answer-item .label {
+    font-size:11px; font-family:'DM Mono',monospace; color:var(--gold-dim);
+    text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
+  }
+  .answer-item .text { font-size:14px; color:var(--text-dim); line-height:1.5; max-height:80px; overflow:hidden; }
+
+  /* ─── TEMPLATE GRID ─── */
+  .template-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-top:24px; }
+  .template-card {
+    background:var(--bg-card); border:2px solid var(--border); border-radius:12px;
+    padding:28px; cursor:pointer; transition:all 0.2s;
+  }
+  .template-card:hover { border-color:var(--border-active); transform:translateY(-2px); }
+  .template-card.selected { border-color:var(--gold); background:rgba(212,160,64,0.05); }
+  .template-card h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
+  .template-card p { font-size:13px; color:var(--text-dim); line-height:1.5; }
+  .template-card .t-best {
+    margin-top:12px; font-size:11px; font-family:'DM Mono',monospace;
+    color:var(--gold-dim); text-transform:uppercase; letter-spacing:1px;
+  }
+
+  /* ─── PREVIEW ─── */
+  .preview-row { display:grid; grid-template-columns:540px 1fr; gap:32px; margin-top:24px; }
+  .preview-frame {
+    width:540px; height:540px; border:1px solid var(--border);
+    border-radius:12px; overflow:hidden; background:var(--bg-card);
+  }
+  .preview-frame iframe {
+    width:1080px; height:1080px; transform:scale(0.5);
+    transform-origin:top left; border:none;
+  }
+
+  /* ─── POST TEXT ─── */
+  .post-box { margin-top:32px; }
+  .post-box h3 {
+    font-size:13px; font-family:'DM Mono',monospace; color:var(--gold);
+    text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;
+  }
+  .char-count { font-family:'DM Mono',monospace; font-size:12px; color:var(--text-faint); margin-bottom:12px; }
+  .char-count.warning { color:var(--danger); }
+  .char-count.good { color:var(--success); }
+
+  /* ─── REFINE BAR ─── */
+  .refine-bar {
+    display:flex; gap:12px; margin-top:16px; padding:16px;
+    background:var(--bg-input); border-radius:8px; align-items:center;
+  }
+  .refine-bar input { flex:1; font-size:15px; }
+  .refine-bar .btn { white-space:nowrap; }
+
+  /* ─── ANALYTICS ─── */
+  .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:32px; }
+  .stat-card {
+    background:var(--bg-card); border:1px solid var(--border);
+    border-radius:12px; padding:24px; text-align:center;
+  }
+  .stat-card .val { font-size:36px; font-weight:700; color:var(--gold); }
+  .stat-card .lbl {
+    font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:1px; margin-top:4px;
+  }
+  table {
+    width:100%; border-collapse:collapse; background:var(--bg-card);
+    border-radius:12px; overflow:hidden; border:1px solid var(--border);
+  }
+  th {
+    text-align:left; padding:16px 20px; font-size:11px; font-family:'DM Mono',monospace;
+    color:var(--text-faint); text-transform:uppercase; letter-spacing:1.5px;
+    border-bottom:1px solid var(--border); background:var(--bg-input);
+  }
+  td {
+    padding:14px 20px; font-size:14px; color:var(--text-dim);
+    border-bottom:1px solid rgba(212,160,64,0.08);
+  }
+  tr:hover td { background:rgba(212,160,64,0.03); }
+
+  /* ─── MODE TOGGLE ─── */
+  .mode-toggle { display:flex; gap:8px; margin-top:20px; }
+  .mode-btn {
+    padding:8px 20px; border-radius:6px; font-size:13px; font-weight:500;
+    cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text-dim);
+  }
+  .mode-btn.active { background:var(--gold); color:var(--bg); border-color:var(--gold); }
+
+  @media (max-width:1100px) {
+    .two-col { grid-template-columns:1fr; }
+    .sidebar { position:static; }
+    .preview-row { grid-template-columns:1fr; }
+    .template-grid { grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width:700px) {
+    header, nav, main { padding-left:20px; padding-right:20px; }
+    .template-grid { grid-template-columns:1fr; }
+    .stats-grid { grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">N40 <span>/ LinkedIn Content Engine</span></div>
+  <div class="header-right">
+    <div class="status-dot" id="statusDot" title="Disconnected"></div>
+    <div class="header-date" id="headerDate"></div>
+  </div>
+</header>
+
+<nav>
+  <button class="active" onclick="showSection('create', this)">Create</button>
+  <button onclick="showSection('library', this)">Library</button>
+  <button onclick="showSection('analytics', this)">Analytics</button>
+</nav>
+
+<main>
+
+<!-- ═══════════ CREATE ═══════════ -->
+<div class="section active" id="section-create">
+
+  <div style="margin-bottom:32px;">
+    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">What are we building today?</h1>
+    <p style="color:var(--text-dim); font-size:15px;">Type your topic. N40 will interview you, then transform your answers into an algorithm-optimized post + saveable infographic.</p>
+  </div>
+
+  <div class="step-indicator" id="steps">
+    <div class="step-dot current" data-s="0"></div>
+    <div class="step-dot" data-s="1"></div>
+    <div class="step-dot" data-s="2"></div>
+    <div class="step-dot" data-s="3"></div>
+    <div class="step-dot" data-s="4"></div>
+    <div class="step-dot" data-s="5"></div>
+    <div class="step-dot" data-s="6"></div>
+    <div class="step-dot" data-s="7"></div>
+  </div>
+
+  <div class="two-col">
+    <div id="mainCol">
+
+      <!-- Step 0: Topic -->
+      <div class="step" id="step-0">
+        <div class="card">
+          <h2>Step 1 — Your Topic</h2>
+          <div class="question">What do you want to teach today?</div>
+          <div class="hint">A sentence, a framework name, a feeling. Example: "Why successful people can't answer 'what do you want?'" or "The Sunday Night Pit" or "Burnout isn't about hours."</div>
+          <input type="text" class="topic-input" id="topicInput" placeholder="Type your topic here..." onkeydown="if(event.key==='Enter')startInterview()">
+          <div class="loading" id="loadingQuestions">
+            <div class="spinner"></div>
+            <span>N40 is crafting your interview questions...</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btnStart" onclick="startInterview()">Start Interview</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Steps 1-5: AI-generated questions -->
+      <div class="step" id="step-1" style="display:none"></div>
+      <div class="step" id="step-2" style="display:none"></div>
+      <div class="step" id="step-3" style="display:none"></div>
+      <div class="step" id="step-4" style="display:none"></div>
+      <div class="step" id="step-5" style="display:none"></div>
+
+      <!-- Step 6: Template -->
+      <div class="step" id="step-6" style="display:none">
+        <div class="card">
+          <h2>Choose Template</h2>
+          <div class="question">Which format makes this framework most saveable?</div>
+          <div class="hint">Pick the one that fits. You can always switch.</div>
+        </div>
+        <div class="template-grid">
+          <div class="template-card" onclick="pickTemplate('cheatsheet')" data-t="cheatsheet">
+            <h3>Cheat Sheet</h3>
+            <p>Multi-section grid. Dense but scannable. The "screenshot and save" format.</p>
+            <div class="t-best">Best for: Comprehensive frameworks</div>
+          </div>
+          <div class="template-card" onclick="pickTemplate('funnel')" data-t="funnel">
+            <h3>Funnel / Process</h3>
+            <p>Vertical stages. Shows progression. "Where are you?"</p>
+            <div class="t-best">Best for: Journeys, diagnostics</div>
+          </div>
+          <div class="template-card" onclick="pickTemplate('system')" data-t="system">
+            <h3>Operating System</h3>
+            <p>Dark bg, categorized rows. Aspirational. "Here's how I do it."</p>
+            <div class="t-best">Best for: Routines, systems</div>
+          </div>
+          <div class="template-card" onclick="pickTemplate('acronym')" data-t="acronym">
+            <h3>Framework Acronym</h3>
+            <p>Vertical letter breakdown. Memorable. Shareable.</p>
+            <div class="t-best">Best for: Original frameworks</div>
+          </div>
+          <div class="template-card" onclick="pickTemplate('comparison')" data-t="comparison">
+            <h3>Comparison</h3>
+            <p>Old way vs. new way. Instant recognition.</p>
+            <div class="t-best">Best for: Mindset shifts</div>
+          </div>
+          <div class="template-card" onclick="pickTemplate('list')" data-t="list">
+            <h3>Numbered List</h3>
+            <p>Clean vertical list. Lowest friction. Highest save rate.</p>
+            <div class="t-best">Best for: Quick-hit value</div>
+          </div>
+        </div>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="mode-dark" onclick="setMode('dark')">Dark</button>
+          <button class="mode-btn" id="mode-light" onclick="setMode('light')">Light</button>
+        </div>
+        <div class="loading" id="loadingContent">
+          <div class="spinner"></div>
+          <span>N40 is building your post and infographic...</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goTo(5)">Back</button>
+          <button class="btn btn-primary" id="btnGenerate" onclick="generateContent()">Generate</button>
+        </div>
+      </div>
+
+      <!-- Step 7: Output -->
+      <div class="step" id="step-7" style="display:none">
+        <div class="card">
+          <h2>Your Content</h2>
+          <div class="question">Review, refine, export.</div>
+        </div>
+
+        <!-- INFOGRAPHIC SECTION -->
+        <div style="margin-bottom:32px;">
+          <h3 style="font-size:13px; font-family:'DM Mono',monospace; color:var(--gold); text-transform:uppercase; letter-spacing:2px; margin-bottom:16px;">Infographic</h3>
+          <div class="preview-row">
+            <div class="preview-frame" id="previewFrame"></div>
+            <div>
+              <p style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:16px;">Preview at 50% — same size LinkedIn displays it. If you can read it here, your audience can read it there.</p>
+              <div class="btn-row" style="justify-content:flex-start;">
+                <button class="btn btn-secondary" onclick="downloadPDF()">Download PDF</button>
+                <button class="btn btn-secondary" onclick="goTo(6)">Change Template</button>
+              </div>
+            </div>
+          </div>
+          <div class="refine-bar" style="margin-top:16px;">
+            <input type="text" id="refineInfographicInput" placeholder="Refine infographic... (e.g., 'make step 3 shorter' or 'change the title to...' or 'add a row about boundaries')" onkeydown="if(event.key==='Enter')refineContent('infographic')">
+            <button class="btn btn-primary" onclick="refineContent('infographic')">Refine Infographic</button>
+          </div>
+          <div class="loading" id="loadingRefineInfographic">
+            <div class="spinner"></div>
+            <span>Refining infographic...</span>
+          </div>
+        </div>
+
+        <!-- POST TEXT SECTION -->
+        <div class="post-box">
+          <h3>LinkedIn Post Text</h3>
+          <div class="char-count" id="charCount">0 / 1,500</div>
+          <textarea id="postText" rows="14" oninput="countChars()"></textarea>
+
+          <div class="refine-bar">
+            <input type="text" id="refinePostInput" placeholder="Refine post text... (e.g., 'make the hook shorter' or 'add more urgency' or 'use the survey data')" onkeydown="if(event.key==='Enter')refineContent('post')">
+            <button class="btn btn-primary" onclick="refineContent('post')">Refine Post</button>
+          </div>
+          <div class="loading" id="loadingRefinePost">
+            <div class="spinner"></div>
+            <span>Refining post...</span>
+          </div>
+        </div>
+
+        <!-- REFINE BOTH -->
+        <div style="margin-top:24px;">
+          <div class="refine-bar" style="background:rgba(212,160,64,0.08); border:1px solid var(--border);">
+            <input type="text" id="refineBothInput" placeholder="Refine BOTH at once... (e.g., 'make it all more urgent' or 'reframe around the spouse conversation')" onkeydown="if(event.key==='Enter')refineContent('both')">
+            <button class="btn btn-primary" onclick="refineContent('both')">Refine Both</button>
+          </div>
+          <div class="loading" id="loadingRefineBoth">
+            <div class="spinner"></div>
+            <span>Refining everything...</span>
+          </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:32px;">
+          <button class="btn btn-ghost" onclick="startOver()">Start Over</button>
+          <button class="btn btn-secondary" onclick="copyPost()">Copy Post Text</button>
+          <button class="btn btn-primary" onclick="saveAll()">Download PDF + Post Text</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <h3>Your Answers</h3>
+      <div id="answersList"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════ LIBRARY ═══════════ -->
+<div class="section" id="section-library">
+  <h1 style="font-size:32px; font-weight:600; margin-bottom:24px;">Content Library</h1>
+  <div id="libraryGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:20px;">
+    <p style="color:var(--text-faint); font-style:italic; grid-column:1/-1; text-align:center; padding:60px 0;">No content saved yet.</p>
+  </div>
+</div>
+
+<!-- ═══════════ ANALYTICS ═══════════ -->
+<div class="section" id="section-analytics">
+  <h1 style="font-size:32px; font-weight:600; margin-bottom:24px;">Performance Analytics</h1>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="val" id="sPosts">0</div><div class="lbl">Posts</div></div>
+    <div class="stat-card"><div class="val" id="sSaves">0</div><div class="lbl">Total Saves</div></div>
+    <div class="stat-card"><div class="val" id="sEng">0</div><div class="lbl">Engagement</div></div>
+    <div class="stat-card"><div class="val" id="sImpr">0</div><div class="lbl">Impressions</div></div>
+  </div>
+  <div style="margin-bottom:24px;">
+    <button class="btn btn-secondary" onclick="toggleStatForm()">+ Log Post Stats</button>
+  </div>
+  <div id="statForm" class="card" style="display:none;">
+    <h2>Log Performance</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-top:16px;">
+      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Post Title</label><input type="text" id="sfTitle"></div>
+      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Date</label><input type="text" id="sfDate"></div>
+      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Saves</label><input type="text" id="sfSaves" placeholder="0"></div>
+      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Comments</label><input type="text" id="sfComments" placeholder="0"></div>
+      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Likes</label><input type="text" id="sfLikes" placeholder="0"></div>
+      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Impressions</label><input type="text" id="sfImpr" placeholder="0"></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-ghost" onclick="toggleStatForm()">Cancel</button><button class="btn btn-primary" onclick="saveStat()">Save</button></div>
+  </div>
+  <table>
+    <thead><tr><th>Date</th><th>Post</th><th>Saves</th><th>Comments</th><th>Likes</th><th>Impressions</th><th>Save Rate</th></tr></thead>
+    <tbody id="statBody"><tr><td colspan="7" style="text-align:center; color:var(--text-faint); padding:40px;">No stats yet.</td></tr></tbody>
+  </table>
+</div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════
+// STATE
+// ═══════════════════════════════════
+const S = {
+  step: 0,
+  topic: '',
+  questions: [],
+  answers: [],
+  template: null,
+  colorMode: 'dark',
+  postText: '',
+  infographicData: {},
+  infographicHTML: '',
+  library: JSON.parse(localStorage.getItem('n40_lib') || '[]'),
+  stats: JSON.parse(localStorage.getItem('lyra_stats') || '[]')
+};
+
+const API = 'http://localhost:5555/api';
+
+// ═══════════════════════════════════
+// INIT
+// ═══════════════════════════════════
+document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+// Check server connection
+fetch(API + '/stats').then(() => {
+  document.getElementById('statusDot').classList.add('connected');
+  document.getElementById('statusDot').title = 'Connected to N40 server';
+}).catch(() => {
+  document.getElementById('statusDot').title = 'Server not running — start with: python3 server.py';
+});
+
+// ═══════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════
+function showSection(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'analytics') renderStats();
+  if (name === 'library') renderLibrary();
+}
+
+function goTo(n) {
+  document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
+  document.getElementById('step-' + n).style.display = 'block';
+  S.step = n;
+  document.querySelectorAll('.step-dot').forEach((d, i) => {
+    d.classList.remove('complete', 'current');
+    if (i < n) d.classList.add('complete');
+    if (i === n) d.classList.add('current');
+  });
+}
+
+// ═══════════════════════════════════
+// STEP 0: TOPIC → AI QUESTIONS
+// ═══════════════════════════════════
+async function startInterview() {
+  const topic = document.getElementById('topicInput').value.trim();
+  if (!topic) return;
+  S.topic = topic;
+  S.answers = [];
+
+  document.getElementById('btnStart').disabled = true;
+  document.getElementById('loadingQuestions').classList.add('active');
+
+  try {
+    const res = await fetch(API + '/generate-questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic })
+    });
+    const data = await res.json();
+
+    if (data.error) throw new Error(data.error);
+
+    S.questions = data.questions;
+    buildQuestionSteps();
+    goTo(1);
+  } catch (e) {
+    alert('Error generating questions: ' + e.message + '\n\nMake sure the server is running: python3 server.py');
+  } finally {
+    document.getElementById('btnStart').disabled = false;
+    document.getElementById('loadingQuestions').classList.remove('active');
+  }
+}
+
+function buildQuestionSteps() {
+  S.questions.forEach((q, i) => {
+    const el = document.getElementById('step-' + (i + 1));
+    el.innerHTML = `
+      <div class="card">
+        <h2>Question ${i + 1} of 5 — ${q.label}</h2>
+        <div class="question">${q.question}</div>
+        <div class="hint">${q.hint}</div>
+        <textarea id="ans-${i}" placeholder="Your answer... (speak naturally, N40 will sharpen it)"></textarea>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="goTo(${i})">Back</button>
+          <button class="btn btn-ghost" onclick="skipQ(${i})">Skip</button>
+          <button class="btn btn-primary" onclick="submitQ(${i})">${i < 4 ? 'Next' : 'Choose Template'}</button>
+        </div>
+      </div>
+    `;
+  });
+}
+
+function submitQ(i) {
+  const val = document.getElementById('ans-' + i)?.value?.trim() || '';
+  S.answers[i] = val;
+  renderSidebar();
+  goTo(i < 4 ? i + 2 : 6);
+}
+
+function skipQ(i) {
+  S.answers[i] = '[skipped]';
+  renderSidebar();
+  goTo(i < 4 ? i + 2 : 6);
+}
+
+function renderSidebar() {
+  const el = document.getElementById('answersList');
+  let html = `<div class="answer-item"><div class="label">Topic</div><div class="text">${S.topic}</div></div>`;
+  S.answers.forEach((a, i) => {
+    if (a && a !== '[skipped]') {
+      html += `<div class="answer-item"><div class="label">${S.questions[i]?.label || 'Q'+(i+1)}</div><div class="text">${a.substring(0, 200)}${a.length > 200 ? '...' : ''}</div></div>`;
+    }
+  });
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════
+// STEP 6: TEMPLATE + GENERATE
+// ═══════════════════════════════════
+function pickTemplate(t) {
+  S.template = t;
+  document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+  document.querySelector(`[data-t="${t}"]`)?.classList.add('selected');
+}
+
+function setMode(m) {
+  S.colorMode = m;
+  document.getElementById('mode-dark').classList.toggle('active', m === 'dark');
+  document.getElementById('mode-light').classList.toggle('active', m === 'light');
+}
+
+async function generateContent() {
+  if (!S.template) { alert('Pick a template first.'); return; }
+
+  document.getElementById('btnGenerate').disabled = true;
+  document.getElementById('loadingContent').classList.add('active');
+
+  try {
+    const res = await fetch(API + '/generate-content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic: S.topic,
+        answers: S.answers,
+        template: S.template,
+        colorMode: S.colorMode
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // Set post text
+    S.postText = data.postText || '';
+    document.getElementById('postText').value = S.postText;
+    countChars();
+
+    // Build infographic HTML from returned data
+    const infographic = data.infographic || {};
+    S.infographicData = infographic;  // Store for refine
+    S.infographicHTML = buildInfographicHTML(S.template, infographic, S.colorMode);
+
+    // Render preview
+    const frame = document.getElementById('previewFrame');
+    frame.innerHTML = `<iframe srcdoc="${S.infographicHTML.replace(/"/g, '&quot;')}"></iframe>`;
+
+    goTo(7);
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    document.getElementById('btnGenerate').disabled = false;
+    document.getElementById('loadingContent').classList.remove('active');
+  }
+}
+
+// ═══════════════════════════════════
+// INFOGRAPHIC HTML BUILDERS
+// ═══════════════════════════════════
+function colors(mode) {
+  const d = mode === 'dark';
+  return {
+    bg: d ? '#080810' : '#FAFAF7',
+    card: d ? '#0E0E1A' : '#FFFFFF',
+    text: d ? '#F5EEE2' : '#1A1A1A',
+    dim: d ? '#C8BCA8' : '#6B6B6B',
+    gold: '#D4A040',
+    border: d ? 'rgba(212,160,64,0.2)' : 'rgba(212,160,64,0.3)',
+    stripe: d ? '#0A0A16' : '#F0EDE6',
+    red: d ? '#8B4040' : '#CC4444',
+    green: d ? '#40805A' : '#22883A'
+  };
+}
+
+function baseCSS(c) {
+  return `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{width:1080px;height:1080px;background:${c.bg};font-family:'DM Sans',sans-serif;color:${c.text};padding:88px 96px 80px;display:flex;flex-direction:column;}
+  .tag{font-family:'DM Mono',monospace;font-size:18px;color:${c.gold};text-transform:uppercase;letter-spacing:3px;margin-bottom:12px;}
+  h1{font-size:52px;font-weight:700;line-height:1.15;margin-bottom:8px;}
+  .sub{font-size:22px;color:${c.dim};margin-bottom:32px;line-height:1.4;}
+  .footer{margin-top:auto;padding-top:20px;display:flex;justify-content:space-between;align-items:center;}
+  .footer span{font-family:'DM Mono',monospace;font-size:16px;color:${c.dim};}
+  .footer .site{color:${c.gold};}`;
+}
+
+function wrap(css, body) {
+  return `<!DOCTYPE html><html><head><style>${css}</style></head><body>${body}</body></html>`;
+}
+
+function buildInfographicHTML(template, info, mode) {
+  const c = colors(mode);
+  const base = baseCSS(c);
+  const tag = `<div class="tag">The Normal 40</div>`;
+  const title = `<h1>${info.title || S.topic}</h1>`;
+  const sub = info.subtitle ? `<div class="sub">${info.subtitle}</div>` : '';
+  const footer = `<div class="footer"><span>Lon Stroschein</span><span class="site">The Normal 40</span></div>`;
+
+  const items = info.items || info.steps || [];
+  const descs = info.descriptions || [];
+
+  switch (template) {
+    case 'cheatsheet': {
+      const sections = info.sections || [];
+      const css = base + `
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;flex:1;}
+        .c{background:${c.card};border:1px solid ${c.border};border-radius:12px;padding:24px;}
+        .c h3{font-size:20px;font-weight:600;margin-bottom:10px;color:${c.gold};}
+        .c li{font-size:18px;color:${c.dim};line-height:1.6;padding:3px 0 3px 20px;position:relative;list-style:none;}
+        .c li::before{content:'';position:absolute;left:0;top:11px;width:8px;height:8px;border-radius:50%;background:${c.gold};}
+        .c.wide{grid-column:1/-1;}`;
+      let grid = '<div class="grid">';
+      sections.forEach((sec, i) => {
+        const wide = i === sections.length - 1 && sections.length % 2 !== 0 ? ' wide' : '';
+        const bullets = Array.isArray(sec.items) ? sec.items : (sec.content ? [sec.content] : []);
+        grid += `<div class="c${wide}"><h3>${sec.heading || sec.title || 'Section ' + (i+1)}</h3><ul>${bullets.map(b => '<li>' + b + '</li>').join('')}</ul></div>`;
+      });
+      grid += '</div>';
+      return wrap(css, tag + title + sub + grid + footer);
+    }
+
+    case 'funnel': {
+      const golds = ['#D4A040', '#C49035', '#B4802A', '#A47020', '#946018'];
+      const css = base + `
+        h1{text-align:center;margin-bottom:48px;}
+        .funnel{flex:1;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;}
+        .stage{display:flex;align-items:center;gap:24px;padding:20px 32px;border-radius:12px;color:#080810;font-weight:600;}
+        .stage .n{font-size:36px;font-weight:800;opacity:0.6;min-width:40px;}
+        .stage .l{font-size:24px;font-weight:600;}`;
+      let body = tag + title;
+      body += '<div class="funnel">';
+      items.forEach((item, i) => {
+        const w = 95 - i * 12;
+        body += `<div class="stage" style="width:${w}%;background:${golds[i%golds.length]};"><div class="n">${i+1}</div><div class="l">${item}</div></div>`;
+      });
+      body += '</div>';
+      return wrap(css, body + footer);
+    }
+
+    case 'system': {
+      const cats = info.categories || items.map((_, i) => 'Step ' + (i + 1));
+      const steps = info.steps || items;
+      const css = base + `
+        h1{margin-bottom:40px;}
+        .rows{flex:1;display:flex;flex-direction:column;gap:16px;}
+        .row{background:${c.card};border:1px solid ${c.border};border-radius:12px;padding:24px 28px;display:flex;align-items:center;gap:24px;}
+        .rl{font-family:'DM Mono',monospace;font-size:14px;color:${c.gold};text-transform:uppercase;letter-spacing:2px;min-width:120px;}
+        .rc{font-size:22px;color:${c.dim};}`;
+      let body = tag + title + '<div class="rows">';
+      steps.forEach((s, i) => {
+        body += `<div class="row"><div class="rl">${cats[i] || ''}</div><div class="rc">${s}</div></div>`;
+      });
+      body += '</div>';
+      return wrap(css, body + footer);
+    }
+
+    case 'acronym': {
+      const css = base + `
+        h1{margin-bottom:48px;}
+        .al{flex:1;display:flex;flex-direction:column;gap:20px;justify-content:center;}
+        .ar{display:flex;align-items:baseline;gap:20px;}
+        .lt{font-size:72px;font-weight:800;color:${c.gold};min-width:60px;line-height:1;}
+        .wd{font-size:28px;font-weight:600;}
+        .ds{font-size:18px;color:${c.dim};margin-top:2px;}`;
+      let body = tag + title + '<div class="al">';
+      items.forEach((item, i) => {
+        const letter = item.charAt(0).toUpperCase();
+        body += `<div class="ar"><div class="lt">${letter}</div><div><div class="wd">${item}</div>${descs[i] ? '<div class="ds">' + descs[i] + '</div>' : ''}</div></div>`;
+      });
+      body += '</div>';
+      return wrap(css, body + footer);
+    }
+
+    case 'comparison': {
+      const lh = info.leftHeader || 'What You\'ve Been Told';
+      const rh = info.rightHeader || 'What\'s Actually True';
+      const li = info.leftItems || ['Work harder', 'Be grateful', 'It\'s a phase', 'Take a vacation', 'Find a hobby'];
+      const ri = info.rightItems || items;
+      const css = base + `
+        h1{margin-bottom:40px;}
+        .comp{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+        .col h3{font-size:22px;font-weight:600;margin-bottom:20px;padding-bottom:12px;}
+        .col.old h3{color:${c.red};border-bottom:2px solid ${c.red};}
+        .col.new h3{color:${c.green};border-bottom:2px solid ${c.green};}
+        .col li{font-size:20px;padding:10px 0;color:${c.dim};border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:12px;list-style:none;}
+        .col.old li::before{content:'\\2717';color:${c.red};font-size:18px;}
+        .col.new li::before{content:'\\2713';color:${c.green};font-size:18px;}`;
+      let body = tag + title + '<div class="comp">';
+      body += `<div class="col old"><h3>${lh}</h3><ul>${li.map(x => '<li>' + x + '</li>').join('')}</ul></div>`;
+      body += `<div class="col new"><h3>${rh}</h3><ul>${ri.map(x => '<li>' + x + '</li>').join('')}</ul></div>`;
+      body += '</div>';
+      return wrap(css, body + footer);
+    }
+
+    case 'list':
+    default: {
+      const css = base + `
+        h1{margin-bottom:40px;}
+        .list{flex:1;display:flex;flex-direction:column;gap:0;}
+        .li{display:flex;align-items:center;gap:24px;padding:20px 28px;border-radius:8px;}
+        .li:nth-child(odd){background:${c.stripe};}
+        .nm{font-size:40px;font-weight:800;color:${c.gold};min-width:50px;font-family:'DM Mono',monospace;}
+        .tx{font-size:24px;font-weight:500;line-height:1.3;}`;
+      let body = tag + title + sub + '<div class="list">';
+      items.forEach((item, i) => {
+        body += `<div class="li"><div class="nm">${String(i+1).padStart(2,'0')}</div><div class="tx">${item}</div></div>`;
+      });
+      body += '</div>';
+      return wrap(css, body + footer);
+    }
+  }
+}
+
+// ═══════════════════════════════════
+// STEP 7: REFINE + EXPORT
+// ═══════════════════════════════════
+function countChars() {
+  const n = document.getElementById('postText').value.length;
+  const el = document.getElementById('charCount');
+  el.textContent = `${n.toLocaleString()} / 1,500`;
+  el.className = 'char-count' + (n > 1500 ? ' warning' : n >= 1100 ? ' good' : '');
+}
+
+async function refineContent(target) {
+  // target: 'post', 'infographic', or 'both'
+  const inputId = target === 'post' ? 'refinePostInput' :
+                  target === 'infographic' ? 'refineInfographicInput' : 'refineBothInput';
+  const loadingId = target === 'post' ? 'loadingRefinePost' :
+                    target === 'infographic' ? 'loadingRefineInfographic' : 'loadingRefineBoth';
+
+  const feedback = document.getElementById(inputId).value.trim();
+  if (!feedback) return;
+
+  document.getElementById(loadingId).classList.add('active');
+
+  try {
+    const res = await fetch(API + '/refine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic: S.topic,
+        target: target,
+        template: S.template,
+        postText: document.getElementById('postText').value,
+        infographicData: S.infographicData || {},
+        feedback
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // Update post text if returned
+    if (data.postText && (target === 'post' || target === 'both')) {
+      document.getElementById('postText').value = data.postText;
+      countChars();
+    }
+
+    // Update infographic if returned
+    if (data.infographic && (target === 'infographic' || target === 'both')) {
+      S.infographicData = data.infographic;
+      S.infographicHTML = buildInfographicHTML(S.template, data.infographic, S.colorMode);
+      const frame = document.getElementById('previewFrame');
+      frame.innerHTML = `<iframe srcdoc="${S.infographicHTML.replace(/"/g, '&quot;')}"></iframe>`;
+    }
+
+    document.getElementById(inputId).value = '';
+  } catch (e) {
+    alert('Refine error: ' + e.message);
+  } finally {
+    document.getElementById(loadingId).classList.remove('active');
+  }
+}
+
+function copyPost() {
+  navigator.clipboard.writeText(document.getElementById('postText').value).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+async function downloadPDF() {
+  // Render infographic HTML into a hidden iframe for capture
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;left:-9999px;width:1080px;height:1080px;border:none;';
+  document.body.appendChild(iframe);
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(S.infographicHTML);
+  iframe.contentDocument.close();
+
+  // Wait for fonts/images to load
+  await new Promise(r => setTimeout(r, 1500));
+
+  try {
+    const body = iframe.contentDocument.body;
+    const canvas = await html2canvas(body, {
+      width: 1080, height: 1080, scale: 2,
+      useCORS: true, backgroundColor: null,
+      logging: false
+    });
+
+    const { jsPDF } = window.jspdf;
+    // 1080pt x 1080pt square page (LinkedIn optimal)
+    const pdf = new jsPDF({ unit: 'pt', format: [1080, 1080] });
+    const imgData = canvas.toDataURL('image/png', 1.0);
+    pdf.addImage(imgData, 'PNG', 0, 0, 1080, 1080);
+
+    // LinkedIn-safe filename: only a-z, 0-9, hyphens
+    const slug = S.topic.toLowerCase().slice(0, 40)
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/[\s-]+/g, '-')
+      .replace(/^-|-$/g, '') || 'infographic';
+    const date = new Date().toISOString().split('T')[0];
+    pdf.save(`${slug}-${date}.pdf`);
+  } catch (e) {
+    console.error('PDF generation failed:', e);
+    alert('PDF generation failed. Downloading HTML instead.');
+    const blob = new Blob([S.infographicHTML], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `n40_${S.template}_${new Date().toISOString().split('T')[0]}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    document.body.removeChild(iframe);
+  }
+}
+
+function downloadPostText() {
+  const postText = document.getElementById('postText').value;
+  const blob = new Blob([postText], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const slug = S.topic.toLowerCase().slice(0, 40)
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s-]+/g, '-')
+    .replace(/^-|-$/g, '') || 'post';
+  a.download = `${slug}-post.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function saveAll() {
+  const postText = document.getElementById('postText').value;
+
+  // Save to localStorage library
+  const item = {
+    id: Date.now(),
+    date: new Date().toISOString().split('T')[0],
+    topic: S.topic,
+    template: S.template,
+    postText
+  };
+  S.library.push(item);
+  localStorage.setItem('n40_lib', JSON.stringify(S.library));
+
+  // Download PDF to device
+  await downloadPDF();
+  // Download post text
+  downloadPostText();
+}
+
+function startOver() {
+  S.step = 0; S.topic = ''; S.questions = []; S.answers = [];
+  S.template = null; S.postText = ''; S.infographicData = {}; S.infographicHTML = '';
+  document.getElementById('topicInput').value = '';
+  document.getElementById('answersList').innerHTML = '';
+  document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+  goTo(0);
+}
+
+// ═══════════════════════════════════
+// LIBRARY
+// ═══════════════════════════════════
+function renderLibrary() {
+  const el = document.getElementById('libraryGrid');
+  if (!S.library.length) {
+    el.innerHTML = '<p style="color:var(--text-faint); font-style:italic; grid-column:1/-1; text-align:center; padding:60px 0;">No content saved yet.</p>';
+    return;
+  }
+  el.innerHTML = S.library.map(i => `
+    <div class="card" style="cursor:pointer; margin:0;" onclick="loadLibraryItem(${i.id})">
+      <div style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); margin-bottom:8px;">${i.date}</div>
+      <h4 style="font-size:16px; margin-bottom:6px;">${i.topic}</h4>
+      <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--gold-dim); background:rgba(212,160,64,0.1); padding:3px 10px; border-radius:4px;">${i.template}</span>
+    </div>
+  `).join('');
+}
+
+function loadLibraryItem(id) {
+  const item = S.library.find(i => i.id === id);
+  if (!item) return;
+  showSection('create', document.querySelector('nav button'));
+  document.getElementById('postText').value = item.postText || '';
+  // Jump to output step with the saved text
+  goTo(7);
+  countChars();
+}
+
+// ═══════════════════════════════════
+// ANALYTICS
+// ═══════════════════════════════════
+function toggleStatForm() {
+  const el = document.getElementById('statForm');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('sfDate').value = new Date().toISOString().split('T')[0];
+}
+
+function saveStat() {
+  const stat = {
+    title: document.getElementById('sfTitle').value,
+    date: document.getElementById('sfDate').value,
+    saves: parseInt(document.getElementById('sfSaves').value) || 0,
+    comments: parseInt(document.getElementById('sfComments').value) || 0,
+    likes: parseInt(document.getElementById('sfLikes').value) || 0,
+    impressions: parseInt(document.getElementById('sfImpr').value) || 0
+  };
+  S.stats.push(stat);
+  localStorage.setItem('lyra_stats', JSON.stringify(S.stats));
+
+  // Also save to server
+  fetch(API + '/stats', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(stat)
+  }).catch(() => {});
+
+  toggleStatForm();
+  renderStats();
+}
+
+function renderStats() {
+  const t = S.stats.reduce((a, s) => ({
+    saves: a.saves + s.saves, comments: a.comments + s.comments,
+    likes: a.likes + s.likes, impressions: a.impressions + s.impressions
+  }), { saves:0, comments:0, likes:0, impressions:0 });
+
+  document.getElementById('sPosts').textContent = S.stats.length;
+  document.getElementById('sSaves').textContent = t.saves.toLocaleString();
+  document.getElementById('sEng').textContent = (t.saves + t.comments + t.likes).toLocaleString();
+  document.getElementById('sImpr').textContent = t.impressions.toLocaleString();
+
+  const body = document.getElementById('statBody');
+  if (!S.stats.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-faint); padding:40px;">No stats yet.</td></tr>';
+    return;
+  }
+  const sorted = [...S.stats].sort((a, b) => b.saves - a.saves);
+  body.innerHTML = sorted.map(s => {
+    const rate = s.impressions > 0 ? ((s.saves / s.impressions) * 100).toFixed(2) + '%' : '—';
+    return `<tr><td>${s.date}</td><td>${s.title}</td><td style="color:var(--gold);font-weight:600;">${s.saves}</td><td>${s.comments}</td><td>${s.likes}</td><td>${s.impressions.toLocaleString()}</td><td>${rate}</td></tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
