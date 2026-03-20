@@ -334,6 +334,165 @@ Return ONLY valid JSON: {{"postText": "refined post text"}}""",
         return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
 
 
+@app.route('/api/recycle', methods=['POST'])
+def recycle():
+    """Recycle an old post into fresh algorithm-optimized content + visual."""
+    data = request.json
+    original = data.get('original', '')
+    length = data.get('length', 'medium')
+    fmt = data.get('format', 'image')
+    slides = data.get('slides', 6)
+
+    if not original:
+        return jsonify({'error': 'No original post provided'}), 400
+
+    length_range = {
+        'short': '600-900 characters',
+        'medium': '1,100-1,500 characters',
+        'long': '1,800-2,200 characters'
+    }.get(length, '1,100-1,500 characters')
+
+    client = get_client()
+
+    if fmt == 'image':
+        visual_instructions = """
+For the "visual" field, return:
+{
+  "lines": ["line 1 of text", "line 2 of text", "line 3 of text"]
+}
+These lines will be overlaid on a branded B&W photo.
+Rules for image text:
+- 3-5 short lines MAXIMUM
+- Each line should be under 8 words
+- The last line should land the punch — the insight that makes them stop
+- Think billboard: if you can't read it in 3 seconds, it's too long
+- NO URLs, NO hashtags, NO attribution on the image (branding is already on the photo)
+- The lines should be a distilled version of the post's core insight — not the hook
+"""
+    else:
+        visual_instructions = f"""
+For the "visual" field, return:
+{{
+  "slides": [
+    {{"title": "Title slide headline", "subtitle": "optional subtitle"}},
+    {{"heading": "Slide 2 heading", "text": "Slide 2 body text — 2-3 sentences max"}},
+    ... repeat for {slides} total slides ...,
+    {{"text": "Closing thought or question", "cta": true}}
+  ]
+}}
+Rules for carousel:
+- Exactly {slides} slides
+- Slide 1 = title slide (hook that stops the scroll)
+- Last slide = closing thought + conversation starter (NOT a CTA to visit a website)
+- Middle slides = the framework, one idea per slide
+- Each slide body: 2-3 sentences MAX. Dense but scannable.
+- NO URLs, NO links, NO "DM me", NO website references
+- Give away the FULL framework. Every slide should teach something usable TODAY.
+"""
+
+    msg = client.messages.create(
+        model='claude-sonnet-4-20250514',
+        max_tokens=4000,
+        system=f"""You are the content recycling engine for Lon Stroschein and The Normal 40.
+
+{AVATAR_CONTEXT}
+
+{VOICE_CONTEXT}
+
+{ALGORITHM_CONTEXT}
+
+Your job: Take an old LinkedIn post and COMPLETELY REWRITE it. Not a light edit — a full transformation.
+
+REWRITE RULES:
+- New hook (first 140 characters) — must be completely different from the original
+- New structure — reorganize the ideas, find a different angle
+- Fresh language — no recycled phrases from the original
+- Same core insight but delivered in a way that feels new
+- Target length: {length_range}
+- End with a specific answerable question (NOT yes/no — ask something that requires a story)
+- Exactly 3 hashtags at the end
+- NO URLs, NO links, NO "DM me", NO "link in comments"
+- Give away ALL the value. Teach the avatar. Optimize for SAVES.
+- The reader should think: "This person just gave me for free what others charge for"
+
+{visual_instructions}
+
+Return ONLY valid JSON:
+{{
+  "postText": "the full rewritten LinkedIn post text",
+  "visual": {{ ... visual data as described above ... }}
+}}
+
+No markdown fences. No explanation. Just the JSON.""",
+        messages=[{'role': 'user', 'content': f'Original post to recycle:\n\n{original}'}]
+    )
+
+    try:
+        text = msg.content[0].text.strip()
+        if text.startswith('```'):
+            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+        result = json.loads(text)
+        return jsonify(result)
+    except (json.JSONDecodeError, IndexError) as e:
+        return jsonify({'error': f'Failed to parse: {str(e)}', 'raw': msg.content[0].text}), 500
+
+
+@app.route('/api/recycle-refine', methods=['POST'])
+def recycle_refine():
+    """Refine recycled content with feedback."""
+    data = request.json
+    target = data.get('target', 'post')
+    fmt = data.get('format', 'image')
+    post_text = data.get('postText', '')
+    visual_data = data.get('visualData', {})
+    feedback = data.get('feedback', '')
+
+    client = get_client()
+
+    if target == 'visual':
+        if fmt == 'image':
+            visual_desc = """The visual is a branded image with text overlay.
+Current data: """ + json.dumps(visual_data) + """
+Return {"visual": {"lines": ["line 1", "line 2", ...]}}
+Keep lines short (under 8 words each), 3-5 lines max."""
+        else:
+            visual_desc = """The visual is a carousel.
+Current data: """ + json.dumps(visual_data) + """
+Return {"visual": {"slides": [...]}} maintaining the same structure."""
+
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514',
+            max_tokens=4000,
+            system=f"""{VOICE_CONTEXT}
+{ALGORITHM_CONTEXT}
+
+Refine the visual content based on feedback. {visual_desc}
+NEVER include URLs, links, or website references.
+Return ONLY valid JSON.""",
+            messages=[{'role': 'user', 'content': f'Feedback: {feedback}'}]
+        )
+    else:
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514',
+            max_tokens=2000,
+            system=f"""{VOICE_CONTEXT}
+{ALGORITHM_CONTEXT}
+
+Refine the post text based on feedback. Maintain voice and algorithm optimization.
+NEVER include URLs, links, or website references. Give everything away freely.
+Return ONLY valid JSON: {{"postText": "refined text"}}""",
+            messages=[{'role': 'user', 'content': f'Current post:\n{post_text}\n\nFeedback: {feedback}'}]
+        )
+
+    try:
+        text = msg.content[0].text.strip()
+        if text.startswith('```'):
+            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+        return jsonify(json.loads(text))
+    except (json.JSONDecodeError, IndexError) as e:
+        return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
+
+
 @app.route('/api/stats', methods=['GET', 'POST'])
 def stats():
     """In-memory analytics stats (no filesystem needed)."""
