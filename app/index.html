@@ -6,6 +6,14 @@
 <title>N40 LinkedIn Content Engine</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script>
+// Ensure jsPDF is accessible — different builds expose it differently
+window._getJsPDF = function() {
+  if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+  if (window.jsPDF) return window.jsPDF;
+  throw new Error('jsPDF library not loaded. Please refresh the page.');
+};
+</script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -1088,7 +1096,7 @@ async function downloadPDF() {
       logging: false
     });
 
-    const { jsPDF } = window.jspdf;
+    const jsPDF = window._getJsPDF();
     // 1080pt x 1080pt square page (LinkedIn optimal)
     const pdf = new jsPDF({ unit: 'pt', format: [1080, 1080] });
     const imgData = canvas.toDataURL('image/png', 1.0);
@@ -1206,6 +1214,24 @@ const R = {
   visualHTML: ''
 };
 
+// Preload branded photos as base64 for use in srcdoc iframes
+const photoCache = {};
+async function preloadPhoto(filename) {
+  if (photoCache[filename]) return photoCache[filename];
+  try {
+    const res = await fetch('images/' + filename);
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => { photoCache[filename] = reader.result; resolve(reader.result); };
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) { return ''; }
+}
+// Preload both on page load
+preloadPhoto('bg-field.png');
+preloadPhoto('bg-ranch.png');
+
 function setRecycleOpt(key, val, btn) {
   R[key] = val;
   btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
@@ -1260,6 +1286,7 @@ async function recyclePost() {
     R.visualData = data.visual || {};
     if (R.format === 'image') {
       document.getElementById('recycleVisualLabel').textContent = 'Branded Image';
+      await preloadPhoto(R.photo);
       R.visualHTML = buildBrandedImageHTML(R.visualData, R.photo);
     } else {
       document.getElementById('recycleVisualLabel').textContent = 'Carousel';
@@ -1282,12 +1309,13 @@ async function recyclePost() {
 function buildBrandedImageHTML(data, photo) {
   const lines = data.lines || [data.hook || 'Your text here'];
   const lineHTML = lines.map(l => `<div class="line">${l}</div>`).join('');
+  const bgData = photoCache[photo] || '';
 
   return `<!DOCTYPE html><html><head><style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
     *{margin:0;padding:0;box-sizing:border-box;}
     body{width:1080px;height:1080px;position:relative;font-family:'DM Sans',sans-serif;overflow:hidden;}
-    .bg{position:absolute;inset:0;background:url('images/${photo}') center/cover no-repeat;}
+    .bg{position:absolute;inset:0;background:url('${bgData}') center/cover no-repeat;}
     .overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.4) 40%,rgba(0,0,0,0.5) 100%);}
     .content{position:absolute;top:180px;left:80px;right:120px;z-index:2;}
     .line{font-size:42px;font-weight:700;color:#FFFFFF;line-height:1.35;margin-bottom:24px;text-shadow:0 2px 8px rgba(0,0,0,0.5);}
@@ -1410,7 +1438,7 @@ async function downloadRecyclePDF() {
 
   try {
     const body = iframe.contentDocument.body;
-    const { jsPDF } = window.jspdf;
+    const jsPDF = window._getJsPDF();
 
     if (R.format === 'carousel') {
       // Multi-page PDF
