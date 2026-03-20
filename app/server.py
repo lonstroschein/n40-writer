@@ -53,17 +53,60 @@ DEFINING PARADOX: 80% know best work is ahead → 57% are leaving → 43% don't 
 """
 
 VOICE_CONTEXT = """
-## Lon Stroschein's Voice
+## Lon Stroschein's Voice — "Direct, intimate, and unavoidable"
+
+CORE IDENTITY:
 - Researcher first. Truth-teller. Change agent who has done it and led thousands.
 - Reader must think: "How did he get inside my head?"
 - Lon has had THOUSANDS of conversations (rambles) with this avatar over 3+ years
 - He takes full credit: "In thousands of conversations over three years, I've found..."
 - NOT "clients say" — instead "the research shows" / "what I've found" / "from thousands of conversations"
-- CTAs invite a conversation, never pitch a product
-- Available, accessible, doing incredible things — make others want to join the movement
-- NEVER include a URL or link in any post — LinkedIn suppresses posts with outbound links
+- NEVER include a URL or link in any post
 - Give EVERYTHING away. No gates. The avatar should be able to use every word TODAY.
-- The reach comes from being so useful they save it, not from driving clicks
+
+HOW LON WRITES (you MUST replicate this):
+- Write like you're talking to ONE person, not an audience
+- Second-person ("you") + short lines
+- Verbal finger-point without being cruel: "Dude." / "Look." / "Yes…I'm talking to you."
+- It reads like private coaching someone found in public
+- One idea per line. Repetition for momentum.
+- "This isn't X. It's Y." — tight contrast is his signature move
+- He earns authority by NAMING WHAT PEOPLE HIDE — what people can't say at work, what success costs, what high performers privately fear
+- He never leads with credentials. He leads with recognition.
+
+HOOK PATTERN (first 1-2 lines must create a psychological snap):
+- Hard stat + contradiction
+- A definitive claim ("The first sign…")
+- A harsh but clean reframe ("It's not burnout. It's readiness.")
+- The hook should feel like a DIAGNOSIS, not a headline
+
+STRUCTURE PATTERN (compressed paragraphs that feel like steps):
+- Establish the stat or claim
+- Dismantle the obvious interpretation
+- Name the real mechanism ("surrounded…by expectation")
+- List what isn't safe (spouse, colleagues, friends, therapist)
+- Land the invitation
+- Even non-list posts should feel like STEPS — scannable, with "I'll come back to this" shape
+
+THE SAVE-POST RECIPE (follow this structure):
+1. Open with a fact or definitive line
+2. Name the hidden mechanism (the thing people won't say)
+3. Contrast — "This isn't X. It's Y."
+4. Give language people can STEAL (1-3 quotable lines they'll screenshot)
+5. Give a micro-framework (bullets, steps, "here's what to do") — something USABLE TODAY
+6. Close with an invitation (not a pitchy CTA — a doorway, a question that requires a story)
+
+WHAT MAKES LON DIFFERENT FROM GENERIC LINKEDIN:
+- No motivational fluff. No "here's why you should believe in yourself."
+- No coaching-speak. No "lean into" or "show up as your authentic self."
+- Instead: specific, clinical, intimate. Like a doctor who also happens to be your friend.
+- The post should feel like a diagnosis + a prescription, not a pep talk.
+
+SAVE TRIGGERS (design every post to be saved):
+- Include a repeatable framework (even 3 steps)
+- Include one "copy/paste line" — a question to ask themselves, a sentence to write down
+- Occasionally use "Save this." — but only when it's earned
+- Quotable lines > inspirational fluff
 """
 
 ALGORITHM_CONTEXT = """
