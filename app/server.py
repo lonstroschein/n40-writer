@@ -120,22 +120,32 @@ def generate_questions():
 
 {ALGORITHM_CONTEXT}
 
-Your job: Generate 5 interview questions for Lon based on his topic. These questions will draw out the raw material needed to create a LinkedIn post + saveable infographic.
+YOUR JOB: Analyze what Lon gave you — it could be a 3-word topic OR a 400-character thought with a story, framework, or raw insight already embedded. Then generate ONLY the questions needed to fill the gaps.
 
-QUESTION STRUCTURE (exactly 5):
-1. YOUR STORY — Ask for a specific moment (his or a client's) where this topic hit hardest. Suggest 2-3 story angles from his work that might fit.
-2. INSIDE THEIR HEAD — Ask what the avatar is thinking about this topic that they'd never say at work. The 3 AM thought.
-3. THE FRAMEWORK — Ask for 3-5 actionable steps someone could use TODAY. Not theory — what does he actually walk people through?
-4. THE CONTRARIAN TAKE — Ask what mainstream advice gets wrong about this. What would make someone say "I never thought of it that way"? Reference 1-2 viral content angles on this topic that are working right now.
-5. THE HOOK — Ask for one sentence under 140 characters that would stop the avatar mid-scroll. Give 2-3 example formats (confession, stat, question).
+FIRST, assess what's already in the seed:
+- Story / specific moment? (a real conversation, a client situation, a personal experience)
+- Emotional truth? (the 3 AM thought, what the avatar won't say out loud)
+- Teachable framework? (actionable steps someone could use TODAY)
+- Contrarian angle? (what mainstream advice gets wrong)
+- Hook material? (a punchy line that would stop the scroll)
+
+THEN, generate 2-5 questions that target ONLY what's missing. Do NOT ask for what Lon already gave you. If he handed you a rich thought with a story and an insight, you might only need 2 questions. If he gave you a bare topic, you might need 5.
+
+Every question should be laser-focused on what will make this post:
+1. TEACH something usable TODAY (the avatar walks away with a framework, not just inspiration)
+2. STOP THE SCROLL (hook that lands in under 140 characters)
+3. GET SAVED (the infographic must be so useful they screenshot it)
+4. DRIVE REAL COMMENTS (end with a question that requires a story, not a yes/no)
 
 For each question, provide:
-- "label": short label (e.g., "Your Story")
-- "question": the actual question
-- "hint": coaching text that helps Lon give a great answer (story suggestions, examples, what to aim for)
+- "label": short label that describes what you're asking for (e.g., "The Moment", "The Framework", "The Line They Won't Say")
+- "question": the actual question — specific, not generic. Reference details from what Lon already shared.
+- "hint": coaching text that helps Lon give a GREAT answer. Include specific suggestions, story angles, or example formats. The hint should make it easy for Lon to know what a good answer looks like.
 
-Return ONLY valid JSON array of 5 objects. No markdown, no explanation.""",
-        messages=[{'role': 'user', 'content': f'Topic: {topic}'}]
+CRITICAL: Be specific. Do NOT ask generic questions like "tell me about a time..." — reference the seed material and build on it. If Lon mentioned a surgeon, ask about that surgeon. If he mentioned a feeling, dig into that feeling.
+
+Return ONLY valid JSON array of 2-5 objects. No markdown, no explanation.""",
+        messages=[{'role': 'user', 'content': f'Lon\'s seed:\n\n{topic}'}]
     )
 
     try:
@@ -162,11 +172,11 @@ def generate_content():
 
     client = get_client()
 
+    answer_labels = data.get('labels', [])
     answers_text = ''
-    labels = ['Your Story', 'Inside Their Head', 'The Framework', 'The Contrarian Take', 'The Hook']
     for i, ans in enumerate(answers):
         if ans and ans != '[skipped]':
-            label = labels[i] if i < len(labels) else f'Q{i+1}'
+            label = answer_labels[i] if i < len(answer_labels) else f'Q{i+1}'
             answers_text += f'\n## {label}\n{ans}\n'
 
     msg = client.messages.create(

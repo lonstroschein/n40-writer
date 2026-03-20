@@ -283,50 +283,37 @@
 <div class="section active" id="section-create">
 
   <div style="margin-bottom:32px;">
-    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">What are we building today?</h1>
-    <p style="color:var(--text-dim); font-size:15px;">Type your topic. N40 will interview you, then transform your answers into an algorithm-optimized post + saveable infographic.</p>
+    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">What are we teaching today?</h1>
+    <p style="color:var(--text-dim); font-size:15px;">Drop in a topic, a thought, a rant, a framework — whatever you've got. Could be 3 words or 3 paragraphs. N40 will figure out what's missing and only ask what it needs.</p>
   </div>
 
-  <div class="step-indicator" id="steps">
-    <div class="step-dot current" data-s="0"></div>
-    <div class="step-dot" data-s="1"></div>
-    <div class="step-dot" data-s="2"></div>
-    <div class="step-dot" data-s="3"></div>
-    <div class="step-dot" data-s="4"></div>
-    <div class="step-dot" data-s="5"></div>
-    <div class="step-dot" data-s="6"></div>
-    <div class="step-dot" data-s="7"></div>
-  </div>
+  <div class="step-indicator" id="steps"></div>
 
   <div class="two-col">
     <div id="mainCol">
 
-      <!-- Step 0: Topic -->
+      <!-- Step 0: Seed input -->
       <div class="step" id="step-0">
         <div class="card">
-          <h2>Step 1 — Your Topic</h2>
-          <div class="question">What do you want to teach today?</div>
-          <div class="hint">A sentence, a framework name, a feeling. Example: "Why successful people can't answer 'what do you want?'" or "The Sunday Night Pit" or "Burnout isn't about hours."</div>
-          <input type="text" class="topic-input" id="topicInput" placeholder="Type your topic here..." onkeydown="if(event.key==='Enter')startInterview()">
+          <h2>Step 1 — Your Seed</h2>
+          <div class="question">What do you want to teach?</div>
+          <div class="hint">A topic, a thought, a raw idea, a story fragment. Examples: "The Sunday Night Pit" or "I had a conversation yesterday with a surgeon who told me he hasn't felt excited about Monday in 6 years. He's not burned out — he's completed. There's a difference." — Give as much or as little as you have.</div>
+          <textarea id="topicInput" class="topic-input" rows="5" style="font-size:18px; min-height:100px;" placeholder="Type or paste your topic, thought, or raw idea here..."></textarea>
           <div class="loading" id="loadingQuestions">
             <div class="spinner"></div>
-            <span>N40 is crafting your interview questions...</span>
+            <span>Analyzing what you gave me and building questions...</span>
           </div>
           <div class="btn-row">
-            <button class="btn btn-primary" id="btnStart" onclick="startInterview()">Start Interview</button>
+            <button class="btn btn-primary" id="btnStart" onclick="startInterview()">Next</button>
           </div>
         </div>
       </div>
 
-      <!-- Steps 1-5: AI-generated questions -->
-      <div class="step" id="step-1" style="display:none"></div>
-      <div class="step" id="step-2" style="display:none"></div>
-      <div class="step" id="step-3" style="display:none"></div>
-      <div class="step" id="step-4" style="display:none"></div>
-      <div class="step" id="step-5" style="display:none"></div>
+      <!-- Dynamic question steps (built by JS based on Claude's response) -->
+      <div id="dynamicQuestionSteps"></div>
 
-      <!-- Step 6: Template -->
-      <div class="step" id="step-6" style="display:none">
+      <!-- Template step -->
+      <div class="step" id="step-template" style="display:none">
         <div class="card">
           <h2>Choose Template</h2>
           <div class="question">Which format makes this framework most saveable?</div>
@@ -373,13 +360,13 @@
           <span>N40 is building your post and infographic...</span>
         </div>
         <div class="btn-row">
-          <button class="btn btn-secondary" onclick="goTo(5)">Back</button>
+          <button class="btn btn-secondary" onclick="goTo(S.questions.length)">Back</button>
           <button class="btn btn-primary" id="btnGenerate" onclick="generateContent()">Generate</button>
         </div>
       </div>
 
-      <!-- Step 7: Output -->
-      <div class="step" id="step-7" style="display:none">
+      <!-- Output step -->
+      <div class="step" id="step-output" style="display:none">
         <div class="card">
           <h2>Your Content</h2>
           <div class="question">Review, refine, export.</div>
@@ -394,7 +381,7 @@
               <p style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:16px;">Preview at 50% — same size LinkedIn displays it. If you can read it here, your audience can read it there.</p>
               <div class="btn-row" style="justify-content:flex-start;">
                 <button class="btn btn-secondary" onclick="downloadPDF()">Download PDF</button>
-                <button class="btn btn-secondary" onclick="goTo(6)">Change Template</button>
+                <button class="btn btn-secondary" onclick="goTo(S.questions.length + 1)">Change Template</button>
               </div>
             </div>
           </div>
@@ -644,6 +631,7 @@ const API = window.location.hostname === 'localhost' ? 'http://localhost:5555/ap
 // INIT
 // ═══════════════════════════════════
 document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+buildStepDots();
 
 // Check server connection
 fetch(API + '/stats').then(() => {
@@ -665,9 +653,39 @@ function showSection(name, btn) {
   if (name === 'library') renderLibrary();
 }
 
+function buildStepDots() {
+  // Total steps: 1 (seed) + N questions + 1 (template) + 1 (output)
+  const total = 1 + S.questions.length + 2;
+  const el = document.getElementById('steps');
+  el.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'step-dot' + (i === 0 ? ' current' : '');
+    dot.dataset.s = i;
+    el.appendChild(dot);
+  }
+}
+
 function goTo(n) {
-  document.querySelectorAll('.step').forEach(s => s.style.display = 'none');
-  document.getElementById('step-' + n).style.display = 'block';
+  // Hide all steps: step-0, dynamic question steps, step-template, step-output
+  document.getElementById('step-0').style.display = 'none';
+  document.querySelectorAll('.dyn-step').forEach(s => s.style.display = 'none');
+  document.getElementById('step-template').style.display = 'none';
+  document.getElementById('step-output').style.display = 'none';
+
+  // Determine which element to show
+  const qCount = S.questions.length;
+  if (n === 0) {
+    document.getElementById('step-0').style.display = 'block';
+  } else if (n >= 1 && n <= qCount) {
+    const el = document.getElementById('dyn-q-' + (n - 1));
+    if (el) el.style.display = 'block';
+  } else if (n === qCount + 1) {
+    document.getElementById('step-template').style.display = 'block';
+  } else if (n === qCount + 2) {
+    document.getElementById('step-output').style.display = 'block';
+  }
+
   S.step = n;
   document.querySelectorAll('.step-dot').forEach((d, i) => {
     d.classList.remove('complete', 'current');
@@ -677,7 +695,7 @@ function goTo(n) {
 }
 
 // ═══════════════════════════════════
-// STEP 0: TOPIC → AI QUESTIONS
+// STEP 0: SEED → DYNAMIC AI QUESTIONS
 // ═══════════════════════════════════
 async function startInterview() {
   const topic = document.getElementById('topicInput').value.trim();
@@ -699,10 +717,11 @@ async function startInterview() {
     if (data.error) throw new Error(data.error);
 
     S.questions = data.questions;
+    buildStepDots();
     buildQuestionSteps();
     goTo(1);
   } catch (e) {
-    alert('Error generating questions: ' + e.message + '\n\nMake sure the server is running: python3 server.py');
+    alert('Error: ' + e.message);
   } finally {
     document.getElementById('btnStart').disabled = false;
     document.getElementById('loadingQuestions').classList.remove('active');
@@ -710,21 +729,30 @@ async function startInterview() {
 }
 
 function buildQuestionSteps() {
+  const container = document.getElementById('dynamicQuestionSteps');
+  container.innerHTML = '';
+  const qCount = S.questions.length;
+
   S.questions.forEach((q, i) => {
-    const el = document.getElementById('step-' + (i + 1));
-    el.innerHTML = `
+    const div = document.createElement('div');
+    div.className = 'step dyn-step';
+    div.id = 'dyn-q-' + i;
+    div.style.display = 'none';
+    const isLast = i === qCount - 1;
+    div.innerHTML = `
       <div class="card">
-        <h2>Question ${i + 1} of 5 — ${q.label}</h2>
+        <h2>Question ${i + 1} of ${qCount} — ${q.label}</h2>
         <div class="question">${q.question}</div>
         <div class="hint">${q.hint}</div>
-        <textarea id="ans-${i}" placeholder="Your answer... (speak naturally, N40 will sharpen it)"></textarea>
+        <textarea id="ans-${i}" rows="5" placeholder="Speak naturally — N40 will sharpen it"></textarea>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="goTo(${i})">Back</button>
           <button class="btn btn-ghost" onclick="skipQ(${i})">Skip</button>
-          <button class="btn btn-primary" onclick="submitQ(${i})">${i < 4 ? 'Next' : 'Choose Template'}</button>
+          <button class="btn btn-primary" onclick="submitQ(${i})">${isLast ? 'Choose Template' : 'Next'}</button>
         </div>
       </div>
     `;
+    container.appendChild(div);
   });
 }
 
@@ -732,18 +760,21 @@ function submitQ(i) {
   const val = document.getElementById('ans-' + i)?.value?.trim() || '';
   S.answers[i] = val;
   renderSidebar();
-  goTo(i < 4 ? i + 2 : 6);
+  const qCount = S.questions.length;
+  goTo(i < qCount - 1 ? i + 2 : qCount + 1);
 }
 
 function skipQ(i) {
   S.answers[i] = '[skipped]';
   renderSidebar();
-  goTo(i < 4 ? i + 2 : 6);
+  const qCount = S.questions.length;
+  goTo(i < qCount - 1 ? i + 2 : qCount + 1);
 }
 
 function renderSidebar() {
   const el = document.getElementById('answersList');
-  let html = `<div class="answer-item"><div class="label">Topic</div><div class="text">${S.topic}</div></div>`;
+  const seedPreview = S.topic.length > 120 ? S.topic.substring(0, 120) + '...' : S.topic;
+  let html = `<div class="answer-item"><div class="label">Seed</div><div class="text">${seedPreview}</div></div>`;
   S.answers.forEach((a, i) => {
     if (a && a !== '[skipped]') {
       html += `<div class="answer-item"><div class="label">${S.questions[i]?.label || 'Q'+(i+1)}</div><div class="text">${a.substring(0, 200)}${a.length > 200 ? '...' : ''}</div></div>`;
@@ -780,6 +811,7 @@ async function generateContent() {
       body: JSON.stringify({
         topic: S.topic,
         answers: S.answers,
+        labels: S.questions.map(q => q.label),
         template: S.template,
         colorMode: S.colorMode
       })
@@ -801,7 +833,7 @@ async function generateContent() {
     const frame = document.getElementById('previewFrame');
     frame.innerHTML = `<iframe srcdoc="${S.infographicHTML.replace(/"/g, '&quot;')}"></iframe>`;
 
-    goTo(7);
+    goTo(S.questions.length + 2);
   } catch (e) {
     alert('Error: ' + e.message);
   } finally {
@@ -1124,8 +1156,13 @@ function startOver() {
   S.template = null; S.postText = ''; S.infographicData = {}; S.infographicHTML = '';
   document.getElementById('topicInput').value = '';
   document.getElementById('answersList').innerHTML = '';
+  document.getElementById('dynamicQuestionSteps').innerHTML = '';
   document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
-  goTo(0);
+  buildStepDots();
+  // Show step-0 directly since goTo needs questions to be set
+  document.getElementById('step-0').style.display = 'block';
+  document.getElementById('step-template').style.display = 'none';
+  document.getElementById('step-output').style.display = 'none';
 }
 
 // ═══════════════════════════════════
@@ -1152,7 +1189,7 @@ function loadLibraryItem(id) {
   showSection('create', document.querySelector('nav button'));
   document.getElementById('postText').value = item.postText || '';
   // Jump to output step with the saved text
-  goTo(7);
+  goTo(S.questions.length + 2);
   countChars();
 }
 
