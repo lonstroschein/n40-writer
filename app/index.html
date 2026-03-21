@@ -1076,52 +1076,49 @@ function copyPost() {
   });
 }
 
-async function downloadPDF() {
-  // Render infographic HTML into a hidden iframe for capture
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;left:-9999px;width:1080px;height:1080px;border:none;';
-  document.body.appendChild(iframe);
-  iframe.contentDocument.open();
-  iframe.contentDocument.write(S.infographicHTML);
-  iframe.contentDocument.close();
+async function renderHTMLtoPDF(html, filename) {
+  // Inject HTML into a hidden div (avoids cross-origin iframe issues)
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:1080px;height:1080px;overflow:hidden;z-index:-1;';
+  container.innerHTML = html.replace(/^<!DOCTYPE[^>]*>/i, '').replace(/<\/?html[^>]*>/gi, '').replace(/<\/?head[^>]*>/gi, '').replace(/<\/?body[^>]*>/gi, '');
 
-  // Wait for fonts/images to load
-  await new Promise(r => setTimeout(r, 1500));
+  // Extract and apply styles from the HTML
+  const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
+  if (styleMatch) {
+    const style = document.createElement('style');
+    style.textContent = styleMatch[1];
+    container.prepend(style);
+  }
+
+  document.body.appendChild(container);
+  await new Promise(r => setTimeout(r, 2000)); // Wait for fonts
 
   try {
-    const body = iframe.contentDocument.body;
-    const canvas = await html2canvas(body, {
+    const canvas = await html2canvas(container, {
       width: 1080, height: 1080, scale: 2,
-      useCORS: true, backgroundColor: null,
-      logging: false
+      useCORS: true, backgroundColor: null, logging: false
     });
-
     const jsPDF = window._getJsPDF();
-    // 1080pt x 1080pt square page (LinkedIn optimal)
     const pdf = new jsPDF({ unit: 'pt', format: [1080, 1080] });
-    const imgData = canvas.toDataURL('image/png', 1.0);
-    pdf.addImage(imgData, 'PNG', 0, 0, 1080, 1080);
-
-    // LinkedIn-safe filename: only a-z, 0-9, hyphens
-    const slug = S.topic.toLowerCase().slice(0, 40)
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/[\s-]+/g, '-')
-      .replace(/^-|-$/g, '') || 'infographic';
-    const date = new Date().toISOString().split('T')[0];
-    pdf.save(`${slug}-${date}.pdf`);
+    pdf.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 1080, 1080);
+    pdf.save(filename);
+    return true;
   } catch (e) {
     console.error('PDF generation failed:', e);
-    alert('PDF generation failed. Downloading HTML instead.');
-    const blob = new Blob([S.infographicHTML], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `n40_${S.template}_${new Date().toISOString().split('T')[0]}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    alert('PDF generation failed: ' + e.message);
+    return false;
   } finally {
-    document.body.removeChild(iframe);
+    document.body.removeChild(container);
   }
+}
+
+async function downloadPDF() {
+  const slug = S.topic.toLowerCase().slice(0, 40)
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s-]+/g, '-')
+    .replace(/^-|-$/g, '') || 'infographic';
+  const date = new Date().toISOString().split('T')[0];
+  await renderHTMLtoPDF(S.infographicHTML, `${slug}-${date}.pdf`);
 }
 
 function downloadPostText() {
@@ -1428,21 +1425,25 @@ function copyRecyclePost() {
 }
 
 async function downloadRecyclePDF() {
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;left:-9999px;width:1080px;height:1080px;border:none;';
-  document.body.appendChild(iframe);
-  iframe.contentDocument.open();
-  iframe.contentDocument.write(R.visualHTML);
-  iframe.contentDocument.close();
-  await new Promise(r => setTimeout(r, 2000));
+  const date = new Date().toISOString().split('T')[0];
 
-  try {
-    const body = iframe.contentDocument.body;
-    const jsPDF = window._getJsPDF();
+  if (R.format === 'carousel') {
+    // Multi-page carousel PDF — render each slide in a hidden div
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
+    container.innerHTML = R.visualHTML.replace(/^<!DOCTYPE[^>]*>/i, '').replace(/<\/?html[^>]*>/gi, '').replace(/<\/?head[^>]*>/gi, '').replace(/<\/?body[^>]*>/gi, '');
+    const styleMatch = R.visualHTML.match(/<style>([\s\S]*?)<\/style>/);
+    if (styleMatch) {
+      const style = document.createElement('style');
+      style.textContent = styleMatch[1];
+      container.prepend(style);
+    }
+    document.body.appendChild(container);
+    await new Promise(r => setTimeout(r, 2000));
 
-    if (R.format === 'carousel') {
-      // Multi-page PDF
-      const slides = body.querySelectorAll('.slide');
+    try {
+      const slides = container.querySelectorAll('.slide');
+      const jsPDF = window._getJsPDF();
       const pdf = new jsPDF({ unit: 'pt', format: [1080, 1080] });
       for (let i = 0; i < slides.length; i++) {
         if (i > 0) pdf.addPage([1080, 1080]);
@@ -1452,22 +1453,16 @@ async function downloadRecyclePDF() {
         });
         pdf.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 1080, 1080);
       }
-      pdf.save(`n40-carousel-${new Date().toISOString().split('T')[0]}.pdf`);
-    } else {
-      // Single image PDF
-      const canvas = await html2canvas(body, {
-        width: 1080, height: 1080, scale: 2,
-        useCORS: true, backgroundColor: null, logging: false
-      });
-      const pdf = new jsPDF({ unit: 'pt', format: [1080, 1080] });
-      pdf.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 1080, 1080);
-      pdf.save(`n40-image-${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.save(`n40-carousel-${date}.pdf`);
+    } catch (e) {
+      console.error('Carousel PDF error:', e);
+      alert('PDF failed: ' + e.message);
+    } finally {
+      document.body.removeChild(container);
     }
-  } catch (e) {
-    console.error('PDF error:', e);
-    alert('PDF failed: ' + e.message);
-  } finally {
-    document.body.removeChild(iframe);
+  } else {
+    // Single branded image PDF
+    await renderHTMLtoPDF(R.visualHTML, `n40-image-${date}.pdf`);
   }
 }
 
