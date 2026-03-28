@@ -885,12 +885,12 @@ function colors(mode) {
 function baseCSS(c) {
   return `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{width:1080px;height:1080px;background:${c.bg};font-family:'DM Sans',sans-serif;color:${c.text};padding:80px 80px 60px;display:flex;flex-direction:column;}
-  .tag{font-family:'DM Mono',monospace;font-size:16px;color:${c.gold};text-transform:uppercase;letter-spacing:3px;margin-bottom:16px;}
-  h1{font-size:48px;font-weight:800;line-height:1.12;margin-bottom:12px;}
-  .sub{font-size:24px;color:${c.dim};margin-bottom:28px;line-height:1.3;}
-  .footer{margin-top:auto;padding-top:16px;display:flex;justify-content:space-between;align-items:center;}
-  .footer span{font-family:'DM Mono',monospace;font-size:14px;color:${c.dim};}
+  body{width:1080px;height:1080px;background:${c.bg};font-family:'DM Sans',sans-serif;color:${c.text};padding:72px 72px 52px;display:flex;flex-direction:column;}
+  .tag{font-family:'DM Mono',monospace;font-size:15px;color:${c.gold};text-transform:uppercase;letter-spacing:4px;margin-bottom:20px;}
+  h1{font-size:64px;font-weight:800;line-height:1.08;margin-bottom:16px;}
+  .sub{font-size:28px;color:${c.dim};margin-bottom:24px;line-height:1.25;font-weight:500;}
+  .footer{margin-top:auto;padding-top:12px;display:flex;justify-content:space-between;align-items:center;}
+  .footer span{font-family:'DM Mono',monospace;font-size:13px;color:${c.dim};}
   .footer .site{color:${c.gold};}`;
 }
 
@@ -911,35 +911,36 @@ function buildInfographicHTML(template, info, mode) {
 
   switch (template) {
     case 'quote': {
-      // Simple: one powerful line on a branded photo
+      // ONE powerful line on a branded photo — maximum impact
       const line = info.quote || info.items?.[0] || info.title || '';
       const css = `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         *{margin:0;padding:0;box-sizing:border-box;}
         body{width:1080px;height:1080px;position:relative;font-family:'DM Sans',sans-serif;overflow:hidden;}
         .bg{position:absolute;inset:0;background:url('/images/bg-field.png') center/cover no-repeat;}
-        .overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0.7) 100%);}
-        .content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:center;padding:100px 80px;}
-        .tag{font-family:'DM Mono',monospace;font-size:14px;color:${c.gold};text-transform:uppercase;letter-spacing:4px;margin-bottom:32px;}
-        .quote{font-size:56px;font-weight:800;color:#FFFFFF;line-height:1.18;text-shadow:0 2px 12px rgba(0,0,0,0.5);max-width:900px;}
-        .footer{position:absolute;bottom:48px;left:80px;right:80px;display:flex;justify-content:space-between;}
-        .footer span{font-family:'DM Mono',monospace;font-size:14px;color:rgba(255,255,255,0.7);}
+        .overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.75) 100%);}
+        .content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:0 80px 120px;}
+        .tag{font-family:'DM Mono',monospace;font-size:14px;color:${c.gold};text-transform:uppercase;letter-spacing:5px;margin-bottom:28px;}
+        .quote{font-size:72px;font-weight:800;color:#FFFFFF;line-height:1.1;text-shadow:0 4px 20px rgba(0,0,0,0.6);max-width:920px;}
+        .footer{position:absolute;bottom:44px;left:80px;right:80px;display:flex;justify-content:space-between;}
+        .footer span{font-family:'DM Mono',monospace;font-size:13px;color:rgba(255,255,255,0.6);}
         .footer .site{color:${c.gold};}`;
       const body = `<div class="bg"></div><div class="overlay"></div><div class="content"><div class="tag">The Normal 40</div><div class="quote">${line}</div></div><div class="footer"><span>Lon Stroschein</span><span class="site">The Normal 40</span></div>`;
       return wrap(css, body);
     }
 
     case 'cheatsheet': {
-      // 4 sections max, bigger text
+      // 4 sections, 2 bullets each — big readable text
       const sections = (info.sections || []).slice(0, 4);
       const css = base + `
+        h1{margin-bottom:28px;}
         .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1;}
-        .c{background:${c.card};border:1px solid ${c.border};border-radius:16px;padding:28px 32px;}
-        .c h3{font-size:24px;font-weight:700;margin-bottom:14px;color:${c.gold};}
-        .c li{font-size:26px;color:${c.dim};line-height:1.5;padding:6px 0 6px 24px;position:relative;list-style:none;}
-        .c li::before{content:'';position:absolute;left:0;top:16px;width:8px;height:8px;border-radius:50%;background:${c.gold};}`;
+        .c{background:${c.card};border:1px solid ${c.border};border-radius:16px;padding:32px 36px;display:flex;flex-direction:column;justify-content:center;}
+        .c h3{font-size:30px;font-weight:800;margin-bottom:16px;color:${c.gold};}
+        .c li{font-size:28px;color:${c.dim};line-height:1.4;padding:6px 0 6px 28px;position:relative;list-style:none;font-weight:500;}
+        .c li::before{content:'';position:absolute;left:0;top:16px;width:10px;height:10px;border-radius:50%;background:${c.gold};}`;
       let grid = '<div class="grid">';
       sections.forEach((sec) => {
-        const bullets = (Array.isArray(sec.items) ? sec.items : (sec.content ? [sec.content] : [])).slice(0, 3);
+        const bullets = (Array.isArray(sec.items) ? sec.items : (sec.content ? [sec.content] : [])).slice(0, 2);
         grid += `<div class="c"><h3>${sec.heading || sec.title || ''}</h3><ul>${bullets.map(b => '<li>' + b + '</li>').join('')}</ul></div>`;
       });
       grid += '</div>';
@@ -947,19 +948,19 @@ function buildInfographicHTML(template, info, mode) {
     }
 
     case 'funnel': {
-      // 3-5 stages, bigger text
-      const golds = ['#D4A040', '#C49035', '#B4802A', '#A47020', '#946018'];
-      const stageItems = items.slice(0, 5);
+      // 3-4 stages, massive text
+      const golds = ['#D4A040', '#C49035', '#B4802A', '#A47020'];
+      const stageItems = items.slice(0, 4);
       const css = base + `
-        h1{text-align:center;margin-bottom:40px;}
-        .funnel{flex:1;display:flex;flex-direction:column;gap:16px;align-items:center;justify-content:center;}
-        .stage{display:flex;align-items:center;gap:28px;padding:28px 40px;border-radius:16px;color:#080810;font-weight:700;}
-        .stage .n{font-size:44px;font-weight:800;opacity:0.5;min-width:48px;}
-        .stage .l{font-size:32px;font-weight:700;}`;
+        h1{text-align:center;margin-bottom:48px;}
+        .funnel{flex:1;display:flex;flex-direction:column;gap:20px;align-items:center;justify-content:center;}
+        .stage{display:flex;align-items:center;gap:32px;padding:36px 48px;border-radius:20px;color:#080810;font-weight:700;}
+        .stage .n{font-size:56px;font-weight:800;opacity:0.4;min-width:56px;}
+        .stage .l{font-size:40px;font-weight:700;}`;
       let body = tag + title;
       body += '<div class="funnel">';
       stageItems.forEach((item, i) => {
-        const w = 95 - i * 14;
+        const w = 95 - i * 16;
         body += `<div class="stage" style="width:${w}%;background:${golds[i%golds.length]};"><div class="n">${i+1}</div><div class="l">${item}</div></div>`;
       });
       body += '</div>';
@@ -967,15 +968,15 @@ function buildInfographicHTML(template, info, mode) {
     }
 
     case 'system': {
-      // 3-5 rows, bigger text
+      // 3-4 rows, big labels + big content
       const cats = info.categories || items.map((_, i) => 'Step ' + (i + 1));
-      const steps = (info.steps || items).slice(0, 5);
+      const steps = (info.steps || items).slice(0, 4);
       const css = base + `
-        h1{margin-bottom:36px;}
-        .rows{flex:1;display:flex;flex-direction:column;gap:16px;justify-content:center;}
-        .row{background:${c.card};border:1px solid ${c.border};border-radius:16px;padding:28px 32px;display:flex;align-items:center;gap:28px;}
-        .rl{font-family:'DM Mono',monospace;font-size:16px;color:${c.gold};text-transform:uppercase;letter-spacing:2px;min-width:130px;}
-        .rc{font-size:30px;color:${c.dim};font-weight:500;}`;
+        h1{margin-bottom:40px;}
+        .rows{flex:1;display:flex;flex-direction:column;gap:20px;justify-content:center;}
+        .row{background:${c.card};border:1px solid ${c.border};border-radius:16px;padding:32px 36px;display:flex;align-items:center;gap:32px;}
+        .rl{font-family:'DM Mono',monospace;font-size:18px;color:${c.gold};text-transform:uppercase;letter-spacing:3px;min-width:140px;font-weight:500;}
+        .rc{font-size:36px;color:${c.dim};font-weight:600;}`;
       let body = tag + title + '<div class="rows">';
       steps.forEach((s, i) => {
         body += `<div class="row"><div class="rl">${cats[i] || ''}</div><div class="rc">${s}</div></div>`;
@@ -985,15 +986,15 @@ function buildInfographicHTML(template, info, mode) {
     }
 
     case 'acronym': {
-      // 3-5 letters, bigger text
+      // 3-5 letters — massive letter, big word, no description clutter
       const acronymItems = items.slice(0, 5);
       const css = base + `
-        h1{margin-bottom:40px;}
-        .al{flex:1;display:flex;flex-direction:column;gap:28px;justify-content:center;}
-        .ar{display:flex;align-items:baseline;gap:24px;}
-        .lt{font-size:80px;font-weight:800;color:${c.gold};min-width:68px;line-height:1;}
-        .wd{font-size:34px;font-weight:700;}
-        .ds{font-size:22px;color:${c.dim};margin-top:4px;line-height:1.3;}`;
+        h1{margin-bottom:44px;}
+        .al{flex:1;display:flex;flex-direction:column;gap:32px;justify-content:center;}
+        .ar{display:flex;align-items:center;gap:28px;}
+        .lt{font-size:96px;font-weight:800;color:${c.gold};min-width:80px;line-height:1;}
+        .wd{font-size:40px;font-weight:700;}
+        .ds{font-size:24px;color:${c.dim};margin-top:4px;line-height:1.2;font-weight:500;}`;
       let body = tag + title + '<div class="al">';
       acronymItems.forEach((item, i) => {
         const letter = item.charAt(0).toUpperCase();
@@ -1004,20 +1005,20 @@ function buildInfographicHTML(template, info, mode) {
     }
 
     case 'comparison': {
-      // 4 items per side max, bigger text
+      // 3-4 items per side, big bold text
       const lh = info.leftHeader || 'What You\'ve Been Told';
       const rh = info.rightHeader || 'What\'s Actually True';
       const li = (info.leftItems || []).slice(0, 4);
       const ri = (info.rightItems || items).slice(0, 4);
       const css = base + `
-        h1{margin-bottom:36px;}
-        .comp{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:40px;}
-        .col h3{font-size:26px;font-weight:700;margin-bottom:24px;padding-bottom:14px;}
+        h1{margin-bottom:32px;}
+        .comp{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:48px;}
+        .col h3{font-size:30px;font-weight:800;margin-bottom:28px;padding-bottom:16px;}
         .col.old h3{color:${c.red};border-bottom:3px solid ${c.red};}
         .col.new h3{color:${c.green};border-bottom:3px solid ${c.green};}
-        .col li{font-size:28px;padding:14px 0;color:${c.dim};border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:14px;list-style:none;}
-        .col.old li::before{content:'\\2717';color:${c.red};font-size:24px;}
-        .col.new li::before{content:'\\2713';color:${c.green};font-size:24px;}`;
+        .col li{font-size:36px;font-weight:600;padding:16px 0;color:${c.dim};border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:16px;list-style:none;}
+        .col.old li::before{content:'\\2717';color:${c.red};font-size:28px;font-weight:800;}
+        .col.new li::before{content:'\\2713';color:${c.green};font-size:28px;font-weight:800;}`;
       let body = tag + title + '<div class="comp">';
       body += `<div class="col old"><h3>${lh}</h3><ul>${li.map(x => '<li>' + x + '</li>').join('')}</ul></div>`;
       body += `<div class="col new"><h3>${rh}</h3><ul>${ri.map(x => '<li>' + x + '</li>').join('')}</ul></div>`;
@@ -1027,15 +1028,15 @@ function buildInfographicHTML(template, info, mode) {
 
     case 'list':
     default: {
-      // 4-6 items max, much bigger text
-      const listItems = items.slice(0, 6);
+      // 3-5 items, massive readable text
+      const listItems = items.slice(0, 5);
       const css = base + `
-        h1{margin-bottom:36px;}
+        h1{margin-bottom:32px;}
         .list{flex:1;display:flex;flex-direction:column;gap:0;justify-content:center;}
-        .li{display:flex;align-items:center;gap:28px;padding:24px 32px;border-radius:10px;}
+        .li{display:flex;align-items:center;gap:32px;padding:28px 36px;border-radius:12px;}
         .li:nth-child(odd){background:${c.stripe};}
-        .nm{font-size:48px;font-weight:800;color:${c.gold};min-width:56px;font-family:'DM Mono',monospace;}
-        .tx{font-size:32px;font-weight:600;line-height:1.25;}`;
+        .nm{font-size:56px;font-weight:800;color:${c.gold};min-width:64px;font-family:'DM Mono',monospace;}
+        .tx{font-size:40px;font-weight:700;line-height:1.2;}`;
       let body = tag + title + sub + '<div class="list">';
       listItems.forEach((item, i) => {
         body += `<div class="li"><div class="nm">${String(i+1).padStart(2,'0')}</div><div class="tx">${item}</div></div>`;

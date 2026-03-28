@@ -268,22 +268,27 @@ Your job: Take Lon's raw interview answers and transform them into TWO things:
 
 2. INFOGRAPHIC CONTENT (for a "{template}" template)
 
-CRITICAL: Less is more. LinkedIn displays infographics at ~50% zoom. Text must be readable at HALF SIZE. Fewer items with bigger impact.
+CRITICAL: LinkedIn displays infographics at ~46% size in the feed. If someone can't read it WITHOUT tapping to expand, it fails. Every word must earn its place.
+
+RULES FOR ALL TEMPLATES:
+- Title: 6 words max. Punchy. Not a sentence.
+- Items: 3-5 words each. Fragments > full sentences.
+- NEVER write full sentences on an infographic. Use fragments, labels, and punchy phrases.
+- The infographic is a BILLBOARD, not an article.
 
 Structure the content to fit the template format:
-- "quote": a single "quote" field — one powerful line (the strongest reframe from the post). Max 15 words. The kind of line people screenshot.
-- "list": title + 4-6 items (short punchy statements, 8 words max each)
-- "comparison": title + leftHeader, rightHeader, 4 items per side max (short phrases)
-- "funnel": title + 3-5 stages (one phrase each, 6 words max)
-- "cheatsheet": title + exactly 4 sections with 2-3 short bullets each
-- "acronym": title + 3-5 letters, each with a word and one-line description
-- "system": title + 3-5 categorized rows (label + short content)
+- "quote": a single "quote" field — one devastating line, max 12 words. Pull the strongest reframe from the post. The kind of line people save.
+- "list": title (4-6 words) + 3-5 items (short fragments, 5 words max each)
+- "comparison": title + leftHeader (3 words), rightHeader (3 words), 3-4 items per side (3-5 words each)
+- "funnel": title + 3-4 stages (one phrase each, 4 words max)
+- "cheatsheet": title + exactly 4 sections (short heading + 2 bullet fragments each, 5 words max per bullet)
+- "acronym": title + 3-5 letters, each with a word and 5-word description
+- "system": title + 3-4 categorized rows (short label + short content, 5 words max each)
 
 The infographic MUST:
-- Pass the BILLBOARD TEST — readable in 3 seconds at 50% zoom
-- Provide a working framework they can use TODAY
-- Make them screenshot it or send it to a friend
-- Use short, punchy language — not full sentences on every line
+- Be READABLE at 46% zoom (how LinkedIn actually displays it)
+- Make someone stop scrolling and screenshot it
+- Use fragments, not sentences. Labels, not paragraphs.
 - Include "Lon Stroschein | The Normal 40" as attribution (NO URL)
 
 Return ONLY valid JSON with this structure:
