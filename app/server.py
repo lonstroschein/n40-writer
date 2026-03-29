@@ -162,19 +162,29 @@ def index():
     return send_from_directory('.', 'index.html')
 
 
-@app.route('/api/generate-questions', methods=['POST'])
-def generate_questions():
-    """Given a topic, generate 5 interview questions."""
+@app.route('/api/next-question', methods=['POST'])
+def next_question():
+    """Generate the NEXT interview question dynamically based on everything so far."""
     data = request.json
     topic = data.get('topic', '')
+    history = data.get('history', [])  # list of {label, question, answer}
+    question_number = len(history) + 1
+
     if not topic:
         return jsonify({'error': 'No topic provided'}), 400
 
     client = get_client()
 
+    # Build the conversation history for context
+    history_text = ''
+    for entry in history:
+        history_text += f"\n### {entry.get('label', 'Q')}\n"
+        history_text += f"Question: {entry.get('question', '')}\n"
+        history_text += f"Lon's answer: {entry.get('answer', '[skipped]')}\n"
+
     msg = client.messages.create(
         model='claude-sonnet-4-20250514',
-        max_tokens=2000,
+        max_tokens=1500,
         system=f"""You are the content interview engine for Lon Stroschein and The Normal 40.
 
 {AVATAR_CONTEXT}
@@ -183,50 +193,66 @@ def generate_questions():
 
 {ALGORITHM_CONTEXT}
 
-YOUR JOB: Analyze what Lon gave you — it could be a 3-word topic OR a 400-character thought with a story, framework, or raw insight already embedded. Then generate ONLY the questions needed to fill the gaps.
+YOU ARE BUILDING A POST DYNAMICALLY — one question at a time. This is question #{question_number}.
 
-FIRST, assess what's already in the seed:
-- Story / specific moment? (a real conversation, a client situation, a personal experience)
-- Emotional truth? (the 3 AM thought, what the avatar won't say out loud)
-- Teachable framework? (actionable steps someone could use TODAY)
-- Contrarian angle? (what mainstream advice gets wrong)
-- Hook material? (a punchy line that would stop the scroll)
+YOUR JOB: Look at EVERYTHING Lon has given you so far (his seed + all answers) and decide:
 
-THEN, generate 2-5 questions that target ONLY what's missing. Do NOT ask for what Lon already gave you. If he handed you a rich thought with a story and an insight, you might only need 2 questions. If he gave you a bare topic, you might need 5.
+OPTION A — ASK THE NEXT QUESTION: Generate the ONE question that will most improve this content right now. Your question should adapt to what Lon just said. If he gave you a story, dig deeper into the emotion. If he gave you a framework, ask for the wound it explains. If he gave you a surface answer, push him toward the real thing.
 
-Every question should be laser-focused on what will make this post:
-1. TEACH something usable TODAY (the avatar walks away with a framework, not just inspiration)
-2. STOP THE SCROLL (hook that lands in under 140 characters)
-3. GET SAVED (the infographic must be so useful they screenshot it)
-4. DRIVE REAL COMMENTS (end with a question that requires a story, not a yes/no)
+OPTION B — SIGNAL READY: If you have enough material for a world-class LinkedIn post AND Substack article (you need: a story/moment, emotional truth, teachable framework, hook material, and a closing question angle), return {{"ready": true}} instead.
 
-For each question, provide:
-- "label": short label that describes what you're asking for (e.g., "The Moment", "The Framework", "The Line They Won't Say")
-- "question": the actual question — specific, not generic. Reference details from what Lon already shared.
-- "hint": coaching text that helps Lon give a GREAT answer. Include specific suggestions, story angles, or example formats. The hint should make it easy for Lon to know what a good answer looks like.
+VOICE COACHING — As you build questions, watch for gaps in Lon's writing using his correction list:
+- Over-explaining after the punch → ask for the SHORT version
+- Big concepts without anchors → ask for a real moment, a visible cost
+- Sermon-like cadence without story → push for lived detail
+- Saying "truth" without naming it → ask him to write the actual forbidden sentence
+- Framework before wound → ask for the wound first
+- Stacking too many ideas → focus him on ONE punch
 
-CRITICAL: Be specific. Do NOT ask generic questions like "tell me about a time..." — reference the seed material and build on it. If Lon mentioned a surgeon, ask about that surgeon. If he mentioned a feeling, dig into that feeling.
+YOUR QUESTION MUST:
+- Reference specific details from what Lon already said (names, phrases, moments)
+- Target what's MISSING — do NOT ask for what he already gave you
+- Push him toward what will make this post saveable, shareable, and algorithm-optimized
+- Be conversational, not clinical — you're a creative partner, not a form
 
-Return ONLY valid JSON array of 2-5 objects. No markdown, no explanation.""",
-        messages=[{'role': 'user', 'content': f'Lon\'s seed:\n\n{topic}'}]
+ALGORITHM AWARENESS — You're building toward:
+- LinkedIn: Hook under 140 chars, 1100-1500 chars, save-optimized, 3 hashtags, question that drives 15+ word comments
+- Substack: Deeper exploration, 800-1200 words, more story, more teaching, newsletter-intimate tone
+
+If asking a question, return ONLY this JSON:
+{{
+  "ready": false,
+  "label": "short label (e.g., The Moment, The Cost, The Line)",
+  "question": "the actual question — specific, referencing what Lon said",
+  "hint": "coaching text that helps Lon nail the answer. Be specific. Give examples of what a great answer looks like.",
+  "missing": ["list of what's still needed after this question, e.g., 'hook material', 'closing question angle'"]
+}}
+
+If ready, return ONLY: {{"ready": true}}
+
+NEVER ask more than 6 questions total. By question 5-6, if you don't have enough, work with what you have and signal ready.""",
+        messages=[{
+            'role': 'user',
+            'content': f'Lon\'s seed:\n\n{topic}\n\n--- CONVERSATION SO FAR ---\n{history_text if history_text else "(First question — no answers yet)"}'
+        }]
     )
 
     try:
         text = msg.content[0].text.strip()
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        questions = json.loads(text)
-        return jsonify({'questions': questions})
+        result = json.loads(text)
+        return jsonify(result)
     except (json.JSONDecodeError, IndexError) as e:
-        return jsonify({'error': f'Failed to parse questions: {str(e)}', 'raw': msg.content[0].text}), 500
+        return jsonify({'error': f'Failed to parse: {str(e)}', 'raw': msg.content[0].text}), 500
 
 
 @app.route('/api/generate-content', methods=['POST'])
 def generate_content():
-    """Given topic + answers, generate optimized post text + infographic data."""
+    """Given topic + full interview history, generate LinkedIn post + Substack post + infographic."""
     data = request.json
     topic = data.get('topic', '')
-    answers = data.get('answers', [])
+    history = data.get('history', [])
     template = data.get('template', 'list')
     color_mode = data.get('colorMode', 'dark')
 
@@ -235,16 +261,15 @@ def generate_content():
 
     client = get_client()
 
-    answer_labels = data.get('labels', [])
+    # Build conversation history
     answers_text = ''
-    for i, ans in enumerate(answers):
-        if ans and ans != '[skipped]':
-            label = answer_labels[i] if i < len(answer_labels) else f'Q{i+1}'
-            answers_text += f'\n## {label}\n{ans}\n'
+    for entry in history:
+        if entry.get('answer') and entry.get('answer') != '[skipped]':
+            answers_text += f"\n## {entry.get('label', 'Q')}\n{entry.get('answer', '')}\n"
 
     msg = client.messages.create(
         model='claude-sonnet-4-20250514',
-        max_tokens=4000,
+        max_tokens=6000,
         system=f"""You are the content creation engine for Lon Stroschein and The Normal 40.
 
 {AVATAR_CONTEXT}
@@ -253,9 +278,11 @@ def generate_content():
 
 {ALGORITHM_CONTEXT}
 
-Your job: Take Lon's raw interview answers and transform them into TWO things:
+Your job: Take Lon's raw interview answers and transform them into THREE things:
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. LINKEDIN POST TEXT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Hook: MUST be under 140 characters. Land before "see more."
 - Use Lon's actual words and stories but sharpen them for maximum impact
 - Write in his voice: researcher, truth-teller, not a coach selling something
@@ -266,46 +293,63 @@ Your job: Take Lon's raw interview answers and transform them into TWO things:
 - Optimize for SAVES — the post should teach them something they can use TODAY
 - The reader should think: "This person just gave me for free what others charge for"
 
-2. INFOGRAPHIC CONTENT (for a "{template}" template)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. SUBSTACK POST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Write a companion Substack article from the SAME raw material. This is NOT a copy of the LinkedIn post — it's a deeper, more intimate exploration.
 
-CRITICAL: LinkedIn displays infographics at ~46% size in the feed. If someone can't read it WITHOUT tapping to expand, it fails. Every word must earn its place.
+SUBSTACK RULES:
+- Title: Punchy, curiosity-driven. The kind of subject line that gets opened.
+- Subtitle: One line that sets up the tension.
+- Length: 800-1,200 words
+- Tone: Newsletter-intimate. Like Lon is writing to ONE person who trusts him. More story, more texture, more teaching than LinkedIn allows.
+- Structure: Open with a moment or scene (not a thesis). Build through story. Land the framework. Close with something that sits with the reader.
+- Use Lon's voice but let it breathe — longer sentences are fine here. More story. More "I was sitting across from..." moments.
+- The Substack should TEACH MORE than the LinkedIn post. Go deeper into the framework. Give the full explanation LinkedIn doesn't have room for.
+- Include section breaks where natural.
+- NO hard CTAs. NO "subscribe for more." The value IS the CTA.
+- End with a line that makes them want to forward this to someone.
+- Format in clean markdown (## for headings, **bold** for emphasis, --- for section breaks).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. INFOGRAPHIC CONTENT (for a "{template}" template)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL: LinkedIn displays infographics at ~46% size in the feed. If someone can't read it WITHOUT tapping to expand, it fails.
 
 RULES FOR ALL TEMPLATES:
 - Title: 6 words max. Punchy. Not a sentence.
 - Items: 3-5 words each. Fragments > full sentences.
-- NEVER write full sentences on an infographic. Use fragments, labels, and punchy phrases.
-- The infographic is a BILLBOARD, not an article.
+- NEVER write full sentences on an infographic. Billboard, not article.
 
-Structure the content to fit the template format:
-- "quote": a single "quote" field — one devastating line, max 12 words. Pull the strongest reframe from the post. The kind of line people save.
-- "list": title (4-6 words) + 3-5 items (short fragments, 5 words max each)
-- "comparison": title + leftHeader (3 words), rightHeader (3 words), 3-4 items per side (3-5 words each)
-- "funnel": title + 3-4 stages (one phrase each, 4 words max)
-- "cheatsheet": title + exactly 4 sections (short heading + 2 bullet fragments each, 5 words max per bullet)
-- "acronym": title + 3-5 letters, each with a word and 5-word description
-- "system": title + 3-4 categorized rows (short label + short content, 5 words max each)
+Structure by template:
+- "quote": single "quote" field — one devastating line, max 12 words
+- "list": title (4-6 words) + 3-5 items (5 words max each)
+- "comparison": title + leftHeader (3 words), rightHeader (3 words), 3-4 items per side
+- "funnel": title + 3-4 stages (4 words max each)
+- "cheatsheet": title + 4 sections (heading + 2 bullet fragments each)
+- "acronym": title + 3-5 letters, each with word + 5-word description
+- "system": title + 3-4 categorized rows (label + content, 5 words max)
 
-The infographic MUST:
-- Be READABLE at 46% zoom (how LinkedIn actually displays it)
-- Make someone stop scrolling and screenshot it
-- Use fragments, not sentences. Labels, not paragraphs.
-- Include "Lon Stroschein | The Normal 40" as attribution (NO URL)
+Include "Lon Stroschein | The Normal 40" as attribution (NO URL).
 
-Return ONLY valid JSON with this structure:
+Return ONLY valid JSON:
 {{
   "postText": "the full LinkedIn post text",
+  "substackTitle": "Substack article title",
+  "substackSubtitle": "Substack subtitle",
+  "substackBody": "full Substack article in markdown",
   "infographic": {{
     "title": "main title",
     "subtitle": "optional subtitle",
-    "sections": [...template-specific content...],
-    "leftHeader": "for comparison only",
-    "rightHeader": "for comparison only",
-    "leftItems": ["for comparison only"],
-    "rightItems": ["for comparison only"],
+    "sections": [...],
+    "leftHeader": "comparison only",
+    "rightHeader": "comparison only",
+    "leftItems": ["comparison only"],
+    "rightItems": ["comparison only"],
     "items": ["for list/funnel/acronym"],
-    "descriptions": ["optional descriptions for each item"],
-    "categories": ["for system template - row labels"],
-    "steps": ["for system template - row content"]
+    "descriptions": ["optional descriptions"],
+    "categories": ["system template labels"],
+    "steps": ["system template content"]
   }}
 }}
 
@@ -328,84 +372,75 @@ No markdown fences. No explanation. Just the JSON.""",
 
 @app.route('/api/refine', methods=['POST'])
 def refine():
-    """Iterate on existing content with feedback. Supports post text, infographic, or both."""
+    """Iterate on existing content with feedback. Supports post, substack, infographic, or all."""
     data = request.json
     current_post = data.get('postText', '')
+    current_substack = data.get('substackBody', '')
     feedback = data.get('feedback', '')
     topic = data.get('topic', '')
-    target = data.get('target', 'post')
+    target = data.get('target', 'post')  # post, substack, infographic, both, all
     template = data.get('template', 'list')
     infographic_data = data.get('infographicData', {})
 
     client = get_client()
 
-    if target == 'infographic' or target == 'both':
-        infographic_json = json.dumps(infographic_data, indent=2) if infographic_data else '{}'
+    infographic_json = json.dumps(infographic_data, indent=2) if infographic_data else '{}'
 
-        system_prompt = f"""You are the content refinement engine for Lon Stroschein / The Normal 40.
+    # Build the JSON return spec based on target
+    return_fields = []
+    if target in ('post', 'both', 'all'):
+        return_fields.append('"postText": "refined LinkedIn post"')
+    if target in ('substack', 'all'):
+        return_fields.append('"substackTitle": "refined title"')
+        return_fields.append('"substackSubtitle": "refined subtitle"')
+        return_fields.append('"substackBody": "refined Substack article in markdown"')
+    if target in ('infographic', 'both', 'all'):
+        return_fields.append('"infographic": { ...template-specific fields... }')
+
+    system_prompt = f"""You are the content refinement engine for Lon Stroschein / The Normal 40.
 
 {VOICE_CONTEXT}
 {ALGORITHM_CONTEXT}
 
 Lon has given you feedback on his current content. Apply his feedback precisely while maintaining:
 - His voice (researcher, truth-teller)
-- Algorithm optimization (saves, hook under 140 chars, 1100-1500 chars, 3 hashtags)
+- Algorithm optimization (saves, hook under 140 chars, 1100-1500 chars, 3 hashtags for LinkedIn)
 - The avatar connection (they must see themselves in this)
-- The infographic must provide a WORKING FRAMEWORK they can use TODAY
-- The infographic must be saveable — something they'd screenshot or send to a friend
-- NEVER include URLs, links, or website references — not in the post, not on the infographic
-- Give ALL the information away. Teach the avatar. No gates, no funnels, no "DM me."
+- NEVER include URLs, links, or website references
+- Give ALL the information away. No gates, no funnels, no "DM me."
 
-The current template is "{template}". When refining infographic content, return data that matches the template structure:
-- "cheatsheet": sections array with heading + items array each
-- "funnel": items array (stage names)
-- "system": categories array (labels) + steps array (content)
-- "acronym": items array (words) + descriptions array
-- "comparison": leftHeader, rightHeader, leftItems array, rightItems array
-- "list": items array (numbered statements)
+REFINING TARGET: {target}
 
-Return ONLY valid JSON with this structure:
-{{
-  "postText": "the refined post text (or unchanged if target is infographic only)",
-  "infographic": {{
-    "title": "...",
-    "subtitle": "...",
-    ...template-specific fields...
-  }}
-}}"""
+For LinkedIn: Keep 1100-1500 chars, hook under 140, 3 hashtags, save-optimized.
+For Substack: Keep 800-1200 words, newsletter-intimate, deeper teaching, clean markdown.
+For infographic (template: "{template}"): Keep readable at 46% zoom, fragments not sentences.
 
-        user_content = f'Topic: {topic}\nTemplate: {template}\nRefine target: {target}\n\n'
-        if current_post:
-            user_content += f'Current post text:\n{current_post}\n\n'
+Template structures:
+- "cheatsheet": sections array with heading + items
+- "funnel": items array
+- "system": categories + steps arrays
+- "acronym": items + descriptions arrays
+- "comparison": leftHeader, rightHeader, leftItems, rightItems
+- "list": items array
+- "quote": quote field
+
+Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
+
+    user_content = f'Topic: {topic}\nTemplate: {template}\nRefine target: {target}\n\n'
+    if current_post:
+        user_content += f'Current LinkedIn post:\n{current_post}\n\n'
+    if current_substack:
+        user_content += f'Current Substack article:\n{current_substack}\n\n'
+    if infographic_data:
         user_content += f'Current infographic data:\n{infographic_json}\n\n'
-        user_content += f'Lon\'s feedback:\n{feedback}'
+    user_content += f'Lon\'s feedback:\n{feedback}'
 
-        msg = client.messages.create(
-            model='claude-sonnet-4-20250514',
-            max_tokens=4000,
-            system=system_prompt,
-            messages=[{'role': 'user', 'content': user_content}]
-        )
-    else:
-        msg = client.messages.create(
-            model='claude-sonnet-4-20250514',
-            max_tokens=2000,
-            system=f"""You are the content refinement engine for Lon Stroschein / The Normal 40.
-
-{VOICE_CONTEXT}
-{ALGORITHM_CONTEXT}
-
-Lon has given you feedback on a draft. Apply it while maintaining:
-- His voice (researcher, truth-teller)
-- Algorithm optimization (saves, hook under 140 chars, 1100-1500 chars, 3 hashtags)
-- The avatar connection (they must see themselves in this)
-
-Return ONLY valid JSON: {{"postText": "refined post text"}}""",
-            messages=[{
-                'role': 'user',
-                'content': f'Topic: {topic}\n\nCurrent draft:\n{current_post}\n\nFeedback:\n{feedback}'
-            }]
-        )
+    msg = client.messages.create(
+        model='claude-sonnet-4-20250514',
+        max_tokens=6000,
+        system=system_prompt,
+        messages=[{'role': 'user', 'content': user_content}]
+    )
 
     try:
         text = msg.content[0].text.strip()

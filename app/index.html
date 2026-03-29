@@ -302,7 +302,7 @@ window.addEventListener('load', function() {
 
   <div style="margin-bottom:32px;">
     <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">What are we teaching today?</h1>
-    <p style="color:var(--text-dim); font-size:15px;">Drop in a topic, a thought, a rant, a framework — whatever you've got. Could be 3 words or 3 paragraphs. N40 will figure out what's missing and only ask what it needs.</p>
+    <p style="color:var(--text-dim); font-size:15px;">Drop in a topic, a thought, a rant, a framework — whatever you've got. Each question adapts to what you just said. N.40 will coach you toward the strongest possible content.</p>
   </div>
 
   <div class="step-indicator" id="steps"></div>
@@ -319,7 +319,7 @@ window.addEventListener('load', function() {
           <textarea id="topicInput" class="topic-input" rows="5" style="font-size:18px; min-height:100px;" placeholder="Type or paste your topic, thought, or raw idea here..."></textarea>
           <div class="loading" id="loadingQuestions">
             <div class="spinner"></div>
-            <span>Analyzing what you gave me and building questions...</span>
+            <span>Analyzing your seed and building the first question...</span>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="btnStart" onclick="startInterview()">Next</button>
@@ -327,8 +327,25 @@ window.addEventListener('load', function() {
         </div>
       </div>
 
-      <!-- Dynamic question steps (built by JS based on Claude's response) -->
-      <div id="dynamicQuestionSteps"></div>
+      <!-- Dynamic question area (one at a time) -->
+      <div id="dynamicQuestion" style="display:none;">
+        <div class="card">
+          <h2 id="dynQLabel">Question 1</h2>
+          <div class="question" id="dynQText"></div>
+          <div class="hint" id="dynQHint"></div>
+          <textarea id="dynQAnswer" rows="5" placeholder="Speak naturally — N.40 will sharpen it"></textarea>
+          <div id="dynQMissing" style="margin-top:12px; font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);"></div>
+          <div class="loading" id="loadingNextQ">
+            <div class="spinner"></div>
+            <span>Reading your answer and building the next question...</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" onclick="skipQuestion()">Skip</button>
+            <button class="btn btn-secondary" onclick="finishEarly()">I'm Done — Generate</button>
+            <button class="btn btn-primary" id="btnNextQ" onclick="submitAnswer()">Next</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Template step -->
       <div class="step" id="step-template" style="display:none">
@@ -380,10 +397,9 @@ window.addEventListener('load', function() {
         </div>
         <div class="loading" id="loadingContent">
           <div class="spinner"></div>
-          <span>N40 is building your post and infographic...</span>
+          <span>Building your LinkedIn post, Substack article, and infographic...</span>
         </div>
         <div class="btn-row">
-          <button class="btn btn-secondary" onclick="goTo(S.questions.length)">Back</button>
           <button class="btn btn-primary" id="btnGenerate" onclick="generateContent()">Generate</button>
         </div>
       </div>
@@ -392,7 +408,7 @@ window.addEventListener('load', function() {
       <div class="step" id="step-output" style="display:none">
         <div class="card">
           <h2>Your Content</h2>
-          <div class="question">Review, refine, export.</div>
+          <div class="question">LinkedIn post + Substack article + infographic — review, refine, export.</div>
         </div>
 
         <!-- INFOGRAPHIC SECTION -->
@@ -404,12 +420,12 @@ window.addEventListener('load', function() {
               <p style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:16px;">Preview at 50% — same size LinkedIn displays it. If you can read it here, your audience can read it there.</p>
               <div class="btn-row" style="justify-content:flex-start;">
                 <button class="btn btn-secondary" onclick="downloadPDF()">Download PDF</button>
-                <button class="btn btn-secondary" onclick="goTo(S.questions.length + 1)">Change Template</button>
+                <button class="btn btn-secondary" onclick="showTemplate()">Change Template</button>
               </div>
             </div>
           </div>
           <div class="refine-bar" style="margin-top:16px;">
-            <input type="text" id="refineInfographicInput" placeholder="Refine infographic... (e.g., 'make step 3 shorter' or 'change the title to...' or 'add a row about boundaries')" onkeydown="if(event.key==='Enter')refineContent('infographic')">
+            <input type="text" id="refineInfographicInput" placeholder="Refine infographic... (e.g., 'make step 3 shorter' or 'change the title')" onkeydown="if(event.key==='Enter')refineContent('infographic')">
             <button class="btn btn-primary" onclick="refineContent('infographic')">Refine Infographic</button>
           </div>
           <div class="loading" id="loadingRefineInfographic">
@@ -418,14 +434,13 @@ window.addEventListener('load', function() {
           </div>
         </div>
 
-        <!-- POST TEXT SECTION -->
+        <!-- LINKEDIN POST SECTION -->
         <div class="post-box">
-          <h3>LinkedIn Post Text</h3>
+          <h3>LinkedIn Post</h3>
           <div class="char-count" id="charCount">0 / 1,500</div>
           <textarea id="postText" rows="14" oninput="countChars()"></textarea>
-
           <div class="refine-bar">
-            <input type="text" id="refinePostInput" placeholder="Refine post text... (e.g., 'make the hook shorter' or 'add more urgency' or 'use the survey data')" onkeydown="if(event.key==='Enter')refineContent('post')">
+            <input type="text" id="refinePostInput" placeholder="Refine LinkedIn post... (e.g., 'make the hook shorter' or 'add more urgency')" onkeydown="if(event.key==='Enter')refineContent('post')">
             <button class="btn btn-primary" onclick="refineContent('post')">Refine Post</button>
           </div>
           <div class="loading" id="loadingRefinePost">
@@ -434,13 +449,36 @@ window.addEventListener('load', function() {
           </div>
         </div>
 
-        <!-- REFINE BOTH -->
+        <!-- SUBSTACK SECTION -->
+        <div class="post-box" style="margin-top:32px;">
+          <h3>Substack Article</h3>
+          <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+            <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">TITLE:</div>
+            <input type="text" id="substackTitle" style="flex:1; font-size:18px; font-weight:600;">
+          </div>
+          <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+            <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">SUBTITLE:</div>
+            <input type="text" id="substackSubtitle" style="flex:1; font-size:14px; color:var(--text-dim);">
+          </div>
+          <div class="char-count" id="substackWordCount">0 words</div>
+          <textarea id="substackBody" rows="20" oninput="countSubstackWords()" style="font-size:15px; line-height:1.8;"></textarea>
+          <div class="refine-bar">
+            <input type="text" id="refineSubstackInput" placeholder="Refine Substack... (e.g., 'more story in the opening' or 'go deeper on the framework')" onkeydown="if(event.key==='Enter')refineContent('substack')">
+            <button class="btn btn-primary" onclick="refineContent('substack')">Refine Substack</button>
+          </div>
+          <div class="loading" id="loadingRefineSubstack">
+            <div class="spinner"></div>
+            <span>Refining Substack article...</span>
+          </div>
+        </div>
+
+        <!-- REFINE ALL -->
         <div style="margin-top:24px;">
           <div class="refine-bar" style="background:rgba(212,160,64,0.08); border:1px solid var(--border);">
-            <input type="text" id="refineBothInput" placeholder="Refine BOTH at once... (e.g., 'make it all more urgent' or 'reframe around the spouse conversation')" onkeydown="if(event.key==='Enter')refineContent('both')">
-            <button class="btn btn-primary" onclick="refineContent('both')">Refine Both</button>
+            <input type="text" id="refineAllInput" placeholder="Refine EVERYTHING at once... (e.g., 'reframe around the spouse conversation')" onkeydown="if(event.key==='Enter')refineContent('all')">
+            <button class="btn btn-primary" onclick="refineContent('all')">Refine All</button>
           </div>
-          <div class="loading" id="loadingRefineBoth">
+          <div class="loading" id="loadingRefineAll">
             <div class="spinner"></div>
             <span>Refining everything...</span>
           </div>
@@ -448,8 +486,9 @@ window.addEventListener('load', function() {
 
         <div class="btn-row" style="margin-top:32px;">
           <button class="btn btn-ghost" onclick="startOver()">Start Over</button>
-          <button class="btn btn-secondary" onclick="copyPost()">Copy Post Text</button>
-          <button class="btn btn-primary" onclick="saveAll()">Download PDF + Post Text</button>
+          <button class="btn btn-secondary" onclick="copyPost()">Copy LinkedIn</button>
+          <button class="btn btn-secondary" onclick="copySubstack()">Copy Substack</button>
+          <button class="btn btn-primary" onclick="saveAll()">Download All</button>
         </div>
       </div>
 
@@ -702,11 +741,14 @@ window.addEventListener('load', function() {
 const S = {
   step: 0,
   topic: '',
-  questions: [],
-  answers: [],
+  history: [],         // [{label, question, hint, answer}]
+  currentQ: null,      // current question object
   template: null,
   colorMode: 'dark',
   postText: '',
+  substackTitle: '',
+  substackSubtitle: '',
+  substackBody: '',
   infographicData: {},
   infographicHTML: '',
   library: JSON.parse(localStorage.getItem('n40_lib') || '[]'),
@@ -719,7 +761,7 @@ const API = window.location.hostname === 'localhost' ? 'http://localhost:5555/ap
 // INIT
 // ═══════════════════════════════════
 document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-buildStepDots();
+updateStepDots();
 
 // Check server connection
 fetch(API + '/stats').then(() => {
@@ -741,73 +783,61 @@ function showSection(name, btn) {
   if (name === 'library') renderLibrary();
 }
 
-function buildStepDots() {
-  // Total steps: 1 (seed) + N questions + 1 (template) + 1 (output)
-  const total = 1 + S.questions.length + 2;
+function updateStepDots() {
+  // Steps: seed + questions so far + template + output
+  const total = 1 + S.history.length + (S.currentQ ? 1 : 0) + 2;
   const el = document.getElementById('steps');
   el.innerHTML = '';
   for (let i = 0; i < total; i++) {
     const dot = document.createElement('div');
-    dot.className = 'step-dot' + (i === 0 ? ' current' : '');
-    dot.dataset.s = i;
+    dot.className = 'step-dot';
+    if (i < S.step) dot.classList.add('complete');
+    if (i === S.step) dot.classList.add('current');
     el.appendChild(dot);
   }
 }
 
-function goTo(n) {
-  // Hide all steps: step-0, dynamic question steps, step-template, step-output
+function showStep(name) {
+  // Hide all create steps
   document.getElementById('step-0').style.display = 'none';
-  document.querySelectorAll('.dyn-step').forEach(s => s.style.display = 'none');
+  document.getElementById('dynamicQuestion').style.display = 'none';
   document.getElementById('step-template').style.display = 'none';
   document.getElementById('step-output').style.display = 'none';
 
-  // Determine which element to show
-  const qCount = S.questions.length;
-  if (n === 0) {
+  if (name === 'seed') {
     document.getElementById('step-0').style.display = 'block';
-  } else if (n >= 1 && n <= qCount) {
-    const el = document.getElementById('dyn-q-' + (n - 1));
-    if (el) el.style.display = 'block';
-  } else if (n === qCount + 1) {
+    S.step = 0;
+  } else if (name === 'question') {
+    document.getElementById('dynamicQuestion').style.display = 'block';
+    S.step = 1 + S.history.length;
+  } else if (name === 'template') {
     document.getElementById('step-template').style.display = 'block';
-  } else if (n === qCount + 2) {
+    S.step = 1 + S.history.length + 1;
+  } else if (name === 'output') {
     document.getElementById('step-output').style.display = 'block';
+    S.step = 1 + S.history.length + 2;
   }
+  updateStepDots();
+}
 
-  S.step = n;
-  document.querySelectorAll('.step-dot').forEach((d, i) => {
-    d.classList.remove('complete', 'current');
-    if (i < n) d.classList.add('complete');
-    if (i === n) d.classList.add('current');
-  });
+function showTemplate() {
+  showStep('template');
 }
 
 // ═══════════════════════════════════
-// STEP 0: SEED → DYNAMIC AI QUESTIONS
+// DYNAMIC INTERVIEW (one question at a time)
 // ═══════════════════════════════════
 async function startInterview() {
   const topic = document.getElementById('topicInput').value.trim();
   if (!topic) return;
   S.topic = topic;
-  S.answers = [];
+  S.history = [];
 
   document.getElementById('btnStart').disabled = true;
   document.getElementById('loadingQuestions').classList.add('active');
 
   try {
-    const res = await fetch(API + '/generate-questions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic })
-    });
-    const data = await res.json();
-
-    if (data.error) throw new Error(data.error);
-
-    S.questions = data.questions;
-    buildStepDots();
-    buildQuestionSteps();
-    goTo(1);
+    await fetchNextQuestion();
   } catch (e) {
     alert('Error: ' + e.message);
   } finally {
@@ -816,63 +846,112 @@ async function startInterview() {
   }
 }
 
-function buildQuestionSteps() {
-  const container = document.getElementById('dynamicQuestionSteps');
-  container.innerHTML = '';
-  const qCount = S.questions.length;
-
-  S.questions.forEach((q, i) => {
-    const div = document.createElement('div');
-    div.className = 'step dyn-step';
-    div.id = 'dyn-q-' + i;
-    div.style.display = 'none';
-    const isLast = i === qCount - 1;
-    div.innerHTML = `
-      <div class="card">
-        <h2>Question ${i + 1} of ${qCount} — ${q.label}</h2>
-        <div class="question">${q.question}</div>
-        <div class="hint">${q.hint}</div>
-        <textarea id="ans-${i}" rows="5" placeholder="Speak naturally — N40 will sharpen it"></textarea>
-        <div class="btn-row">
-          <button class="btn btn-secondary" onclick="goTo(${i})">Back</button>
-          <button class="btn btn-ghost" onclick="skipQ(${i})">Skip</button>
-          <button class="btn btn-primary" onclick="submitQ(${i})">${isLast ? 'Choose Template' : 'Next'}</button>
-        </div>
-      </div>
-    `;
-    container.appendChild(div);
+async function fetchNextQuestion() {
+  const res = await fetch(API + '/next-question', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic: S.topic, history: S.history })
   });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+
+  if (data.ready) {
+    // AI says we have enough — go to template
+    showStep('template');
+    return;
+  }
+
+  // Show the new question
+  S.currentQ = data;
+  const qNum = S.history.length + 1;
+  document.getElementById('dynQLabel').textContent = `Question ${qNum} — ${data.label}`;
+  document.getElementById('dynQText').textContent = data.question;
+  document.getElementById('dynQHint').textContent = data.hint;
+  document.getElementById('dynQAnswer').value = '';
+
+  // Show what's still missing
+  if (data.missing && data.missing.length) {
+    document.getElementById('dynQMissing').textContent = 'Still building: ' + data.missing.join(' · ');
+  } else {
+    document.getElementById('dynQMissing').textContent = '';
+  }
+
+  showStep('question');
+  document.getElementById('dynQAnswer').focus();
 }
 
-function submitQ(i) {
-  const val = document.getElementById('ans-' + i)?.value?.trim() || '';
-  S.answers[i] = val;
+async function submitAnswer() {
+  const answer = document.getElementById('dynQAnswer').value.trim();
+  if (!answer) return;
+
+  // Save to history
+  S.history.push({
+    label: S.currentQ.label,
+    question: S.currentQ.question,
+    answer: answer
+  });
   renderSidebar();
-  const qCount = S.questions.length;
-  goTo(i < qCount - 1 ? i + 2 : qCount + 1);
+
+  document.getElementById('btnNextQ').disabled = true;
+  document.getElementById('loadingNextQ').classList.add('active');
+
+  try {
+    await fetchNextQuestion();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    document.getElementById('btnNextQ').disabled = false;
+    document.getElementById('loadingNextQ').classList.remove('active');
+  }
 }
 
-function skipQ(i) {
-  S.answers[i] = '[skipped]';
+async function skipQuestion() {
+  S.history.push({
+    label: S.currentQ.label,
+    question: S.currentQ.question,
+    answer: '[skipped]'
+  });
   renderSidebar();
-  const qCount = S.questions.length;
-  goTo(i < qCount - 1 ? i + 2 : qCount + 1);
+
+  document.getElementById('loadingNextQ').classList.add('active');
+  try {
+    await fetchNextQuestion();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    document.getElementById('loadingNextQ').classList.remove('active');
+  }
+}
+
+function finishEarly() {
+  // Save current answer if any
+  const answer = document.getElementById('dynQAnswer').value.trim();
+  if (answer) {
+    S.history.push({
+      label: S.currentQ.label,
+      question: S.currentQ.question,
+      answer: answer
+    });
+    renderSidebar();
+  }
+  showStep('template');
 }
 
 function renderSidebar() {
   const el = document.getElementById('answersList');
   const seedPreview = S.topic.length > 120 ? S.topic.substring(0, 120) + '...' : S.topic;
   let html = `<div class="answer-item"><div class="label">Seed</div><div class="text">${seedPreview}</div></div>`;
-  S.answers.forEach((a, i) => {
-    if (a && a !== '[skipped]') {
-      html += `<div class="answer-item"><div class="label">${S.questions[i]?.label || 'Q'+(i+1)}</div><div class="text">${a.substring(0, 200)}${a.length > 200 ? '...' : ''}</div></div>`;
+  S.history.forEach((entry) => {
+    if (entry.answer && entry.answer !== '[skipped]') {
+      const preview = entry.answer.substring(0, 200) + (entry.answer.length > 200 ? '...' : '');
+      html += `<div class="answer-item"><div class="label">${entry.label}</div><div class="text">${preview}</div></div>`;
     }
   });
   el.innerHTML = html;
 }
 
 // ═══════════════════════════════════
-// STEP 6: TEMPLATE + GENERATE
+// TEMPLATE + GENERATE
 // ═══════════════════════════════════
 function pickTemplate(t) {
   S.template = t;
@@ -898,8 +977,7 @@ async function generateContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         topic: S.topic,
-        answers: S.answers,
-        labels: S.questions.map(q => q.label),
+        history: S.history,
         template: S.template,
         colorMode: S.colorMode
       })
@@ -907,21 +985,28 @@ async function generateContent() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
-    // Set post text
+    // LinkedIn post
     S.postText = data.postText || '';
     document.getElementById('postText').value = S.postText;
     countChars();
 
-    // Build infographic HTML from returned data
-    const infographic = data.infographic || {};
-    S.infographicData = infographic;  // Store for refine
-    S.infographicHTML = buildInfographicHTML(S.template, infographic, S.colorMode);
+    // Substack
+    S.substackTitle = data.substackTitle || '';
+    S.substackSubtitle = data.substackSubtitle || '';
+    S.substackBody = data.substackBody || '';
+    document.getElementById('substackTitle').value = S.substackTitle;
+    document.getElementById('substackSubtitle').value = S.substackSubtitle;
+    document.getElementById('substackBody').value = S.substackBody;
+    countSubstackWords();
 
-    // Render preview
+    // Infographic
+    const infographic = data.infographic || {};
+    S.infographicData = infographic;
+    S.infographicHTML = buildInfographicHTML(S.template, infographic, S.colorMode);
     const frame = document.getElementById('previewFrame');
     frame.innerHTML = `<iframe srcdoc="${S.infographicHTML.replace(/"/g, '&quot;')}"></iframe>`;
 
-    goTo(S.questions.length + 2);
+    showStep('output');
   } catch (e) {
     alert('Error: ' + e.message);
   } finally {
@@ -1114,7 +1199,7 @@ function buildInfographicHTML(template, info, mode) {
 }
 
 // ═══════════════════════════════════
-// STEP 7: REFINE + EXPORT
+// REFINE + EXPORT
 // ═══════════════════════════════════
 function countChars() {
   const n = document.getElementById('postText').value.length;
@@ -1123,12 +1208,32 @@ function countChars() {
   el.className = 'char-count' + (n > 1500 ? ' warning' : n >= 1100 ? ' good' : '');
 }
 
+function countSubstackWords() {
+  const text = document.getElementById('substackBody').value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  const el = document.getElementById('substackWordCount');
+  el.textContent = `${words.toLocaleString()} words`;
+  el.className = 'char-count' + (words > 1200 ? ' warning' : words >= 800 ? ' good' : '');
+}
+
 async function refineContent(target) {
-  // target: 'post', 'infographic', or 'both'
-  const inputId = target === 'post' ? 'refinePostInput' :
-                  target === 'infographic' ? 'refineInfographicInput' : 'refineBothInput';
-  const loadingId = target === 'post' ? 'loadingRefinePost' :
-                    target === 'infographic' ? 'loadingRefineInfographic' : 'loadingRefineBoth';
+  // target: 'post', 'substack', 'infographic', 'both' (post+infographic), 'all'
+  const inputMap = {
+    post: 'refinePostInput',
+    substack: 'refineSubstackInput',
+    infographic: 'refineInfographicInput',
+    both: 'refineAllInput',
+    all: 'refineAllInput'
+  };
+  const loadingMap = {
+    post: 'loadingRefinePost',
+    substack: 'loadingRefineSubstack',
+    infographic: 'loadingRefineInfographic',
+    both: 'loadingRefineAll',
+    all: 'loadingRefineAll'
+  };
+  const inputId = inputMap[target];
+  const loadingId = loadingMap[target];
 
   const feedback = document.getElementById(inputId).value.trim();
   if (!feedback) return;
@@ -1144,6 +1249,7 @@ async function refineContent(target) {
         target: target,
         template: S.template,
         postText: document.getElementById('postText').value,
+        substackBody: document.getElementById('substackBody').value,
         infographicData: S.infographicData || {},
         feedback
       })
@@ -1151,14 +1257,22 @@ async function refineContent(target) {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
-    // Update post text if returned
-    if (data.postText && (target === 'post' || target === 'both')) {
+    // Update LinkedIn post
+    if (data.postText) {
       document.getElementById('postText').value = data.postText;
       countChars();
     }
 
-    // Update infographic if returned
-    if (data.infographic && (target === 'infographic' || target === 'both')) {
+    // Update Substack
+    if (data.substackTitle) document.getElementById('substackTitle').value = data.substackTitle;
+    if (data.substackSubtitle) document.getElementById('substackSubtitle').value = data.substackSubtitle;
+    if (data.substackBody) {
+      document.getElementById('substackBody').value = data.substackBody;
+      countSubstackWords();
+    }
+
+    // Update infographic
+    if (data.infographic) {
       S.infographicData = data.infographic;
       S.infographicHTML = buildInfographicHTML(S.template, data.infographic, S.colorMode);
       const frame = document.getElementById('previewFrame');
@@ -1175,6 +1289,19 @@ async function refineContent(target) {
 
 function copyPost() {
   navigator.clipboard.writeText(document.getElementById('postText').value).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+function copySubstack() {
+  const title = document.getElementById('substackTitle').value;
+  const subtitle = document.getElementById('substackSubtitle').value;
+  const body = document.getElementById('substackBody').value;
+  const full = `# ${title}\n\n*${subtitle}*\n\n${body}`;
+  navigator.clipboard.writeText(full).then(() => {
     const btn = event.target;
     const orig = btn.textContent;
     btn.textContent = 'Copied!';
@@ -1259,6 +1386,7 @@ function downloadPostText() {
 
 async function saveAll() {
   const postText = document.getElementById('postText').value;
+  const substackBody = document.getElementById('substackBody').value;
 
   // Save to localStorage library
   const item = {
@@ -1266,29 +1394,48 @@ async function saveAll() {
     date: new Date().toISOString().split('T')[0],
     topic: S.topic,
     template: S.template,
-    postText
+    postText,
+    substackTitle: document.getElementById('substackTitle').value,
+    substackBody
   };
   S.library.push(item);
   localStorage.setItem('n40_lib', JSON.stringify(S.library));
 
-  // Download PDF to device
+  // Download infographic PDF
   await downloadPDF();
-  // Download post text
+  // Download LinkedIn post text
   downloadPostText();
+  // Download Substack article
+  downloadSubstackText();
+}
+
+function downloadSubstackText() {
+  const title = document.getElementById('substackTitle').value;
+  const subtitle = document.getElementById('substackSubtitle').value;
+  const body = document.getElementById('substackBody').value;
+  const full = `# ${title}\n\n*${subtitle}*\n\n${body}`;
+  const blob = new Blob([full], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const slug = S.topic.toLowerCase().slice(0, 40)
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s-]+/g, '-')
+    .replace(/^-|-$/g, '') || 'substack';
+  a.download = `${slug}-substack.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function startOver() {
-  S.step = 0; S.topic = ''; S.questions = []; S.answers = [];
-  S.template = null; S.postText = ''; S.infographicData = {}; S.infographicHTML = '';
+  S.step = 0; S.topic = ''; S.history = []; S.currentQ = null;
+  S.template = null; S.postText = ''; S.substackTitle = ''; S.substackSubtitle = ''; S.substackBody = '';
+  S.infographicData = {}; S.infographicHTML = '';
   document.getElementById('topicInput').value = '';
   document.getElementById('answersList').innerHTML = '';
-  document.getElementById('dynamicQuestionSteps').innerHTML = '';
   document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
-  buildStepDots();
-  // Show step-0 directly since goTo needs questions to be set
-  document.getElementById('step-0').style.display = 'block';
-  document.getElementById('step-template').style.display = 'none';
-  document.getElementById('step-output').style.display = 'none';
+  updateStepDots();
+  showStep('seed');
 }
 
 // ═══════════════════════════════════
@@ -1314,9 +1461,11 @@ function loadLibraryItem(id) {
   if (!item) return;
   showSection('create', document.querySelector('nav button'));
   document.getElementById('postText').value = item.postText || '';
-  // Jump to output step with the saved text
-  goTo(S.questions.length + 2);
+  if (item.substackTitle) document.getElementById('substackTitle').value = item.substackTitle;
+  if (item.substackBody) document.getElementById('substackBody').value = item.substackBody;
+  showStep('output');
   countChars();
+  countSubstackWords();
 }
 
 // ═══════════════════════════════════
