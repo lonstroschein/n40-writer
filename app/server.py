@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify, send_from_directory
 
 import anthropic
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(__name__, static_folder=None)
 
 # ─── AVATAR CONTEXT (baked in) ──────────────────────────────────
 AVATAR_CONTEXT = """
@@ -159,7 +159,12 @@ def get_client():
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(os.path.dirname(__file__), 'index.html')
+
+
+@app.route('/images/<path:filename>')
+def serve_image(filename):
+    return send_from_directory(os.path.join(os.path.dirname(__file__), 'images'), filename)
 
 
 @app.route('/api/next-question', methods=['POST'])
