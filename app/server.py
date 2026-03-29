@@ -606,6 +606,90 @@ Return ONLY valid JSON: {{"postText": "refined text"}}""",
         return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
 
 
+@app.route('/api/generate-note', methods=['POST'])
+def generate_note():
+    """Take a short thought and write it as a LinkedIn Note in Lon's voice."""
+    data = request.json
+    thought = data.get('thought', '')
+    edge = data.get('edge', 'teach')
+
+    if not thought:
+        return jsonify({'error': 'No thought provided'}), 400
+
+    edge_instructions = {
+        'teach': 'The note should TEACH — give the reader something they can use today. Name the mechanism. Give the language. Make them smarter in 30 seconds.',
+        'reframe': 'The note should REFRAME — take what they believe and flip it. Show them the thing they\'ve been looking at wrong. The reader should feel the ground shift.',
+        'confrontation': 'The note should CONFRONT — call them out with precision and care. Name what they\'re hiding from. Be direct without being cruel. A verbal finger-point that lands.',
+        'truth': 'The note should deliver a TRUTH — say the thing nobody else will say. The sentence people read twice. The one that makes them put their phone down and stare at the ceiling.'
+    }.get(edge, '')
+
+    client = get_client()
+
+    msg = client.messages.create(
+        model='claude-sonnet-4-20250514',
+        max_tokens=1000,
+        system=f"""You are Lon Stroschein's voice for LinkedIn Notes — short-form posts under 300 characters ideally, never more than 500 characters.
+
+{AVATAR_CONTEXT}
+
+{VOICE_CONTEXT}
+
+YOUR JOB: Take Lon's raw thought and write it as a LinkedIn Note.
+
+{edge_instructions}
+
+RULES FOR NOTES:
+- SHORT. Under 300 characters is the target. Never exceed 500.
+- Every word earns its place. No filler. No warming up.
+- One idea. One punch. Done.
+- Write like a text from a mentor, not a post from a brand.
+- The reader should screenshot it or sit with it.
+- NO hashtags. NO links. NO emojis. NO "DM me." NO calls to action.
+- Do NOT open with "I" — open with the truth.
+- Use Lon's signature moves: tight contrast ("This isn't X. It's Y."), direct address ("You"), questions that are mirrors ("Can't or won't?")
+- End on a line that sticks. 3-8 words. Inevitable. Hard to argue with.
+
+Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, ready to post.""",
+        messages=[{'role': 'user', 'content': f'Lon\'s thought:\n\n{thought}'}]
+    )
+
+    note = msg.content[0].text.strip()
+    return jsonify({'note': note})
+
+
+@app.route('/api/refine-note', methods=['POST'])
+def refine_note():
+    """Refine a LinkedIn Note with feedback."""
+    data = request.json
+    thought = data.get('thought', '')
+    edge = data.get('edge', 'teach')
+    current = data.get('current', '')
+    feedback = data.get('feedback', '')
+
+    client = get_client()
+
+    msg = client.messages.create(
+        model='claude-sonnet-4-20250514',
+        max_tokens=1000,
+        system=f"""{VOICE_CONTEXT}
+
+You are refining a LinkedIn Note for Lon Stroschein. Notes are SHORT — under 300 characters ideally, never more than 500.
+
+The edge is: {edge}. Apply the feedback precisely. Keep it punchy, direct, and in Lon's voice.
+
+NO hashtags. NO links. NO emojis. NO calls to action.
+
+Return ONLY the refined note text. No JSON. No quotes. No explanation.""",
+        messages=[{
+            'role': 'user',
+            'content': f'Original thought: {thought}\n\nCurrent note:\n{current}\n\nFeedback: {feedback}'
+        }]
+    )
+
+    note = msg.content[0].text.strip()
+    return jsonify({'note': note})
+
+
 @app.route('/api/stats', methods=['GET', 'POST'])
 def stats():
     """In-memory analytics stats (no filesystem needed)."""
@@ -621,7 +705,7 @@ def stats():
 
 
 if __name__ == '__main__':
-    print('\n  N40 LinkedIn Content Engine')
+    print('\n  N.40 Content Engine')
     print('  Open: http://localhost:5555')
     print('  Ctrl+C to stop\n')
     app.run(host='127.0.0.1', port=5555, debug=True)

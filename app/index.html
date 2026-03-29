@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>N40 LinkedIn Content Engine</title>
+<title>N.40 Content Engine</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
@@ -280,7 +280,7 @@ window.addEventListener('load', function() {
 <body>
 
 <header>
-  <div class="logo">N40 <span>/ LinkedIn Content Engine</span></div>
+  <div class="logo">N.40 <span>/ Content Engine</span></div>
   <div class="header-right">
     <div class="status-dot" id="statusDot" title="Disconnected"></div>
     <div class="header-date" id="headerDate"></div>
@@ -289,6 +289,7 @@ window.addEventListener('load', function() {
 
 <nav>
   <button class="active" onclick="showSection('create', this)">Create</button>
+  <button onclick="showSection('notes', this)">Notes</button>
   <button onclick="showSection('recycle', this)">Recycle</button>
   <button onclick="showSection('library', this)">Library</button>
   <button onclick="showSection('analytics', this)">Analytics</button>
@@ -458,6 +459,71 @@ window.addEventListener('load', function() {
     <div class="sidebar" id="sidebar">
       <h3>Your Answers</h3>
       <div id="answersList"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════ NOTES ═══════════ -->
+<div class="section" id="section-notes">
+
+  <div style="margin-bottom:32px;">
+    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">Drop a Note</h1>
+    <p style="color:var(--text-dim); font-size:15px;">A short thought. Under 100 words. N40 will write it in your voice — direct, punchy, ready to post.</p>
+  </div>
+
+  <!-- Input -->
+  <div id="notes-input">
+    <div class="card">
+      <h2>Your Thought</h2>
+      <div class="question">What's the idea?</div>
+      <div class="hint">A raw thought, observation, or thing you'd say across a table. Could be one sentence. "People confuse being busy with being important." — that's enough.</div>
+      <textarea id="noteInput" rows="4" placeholder="Type your thought..." oninput="noteCharCount()"></textarea>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+        <div class="char-count" id="noteInputCount" style="margin:0;">0 / 100 words</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:24px 36px;">
+      <h2>Edge</h2>
+      <div class="hint" style="margin-bottom:16px;">What angle should this hit?</div>
+      <div class="option-pills">
+        <button class="pill active" onclick="setNoteEdge('teach',this)">Teach</button>
+        <button class="pill" onclick="setNoteEdge('reframe',this)">Reframe</button>
+        <button class="pill" onclick="setNoteEdge('confrontation',this)">Confrontation</button>
+        <button class="pill" onclick="setNoteEdge('truth',this)">Truth</button>
+      </div>
+    </div>
+
+    <div class="loading" id="loadingNote">
+      <div class="spinner"></div>
+      <span>Writing your note...</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnNote" onclick="generateNote()">Write It</button>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div id="notes-output" style="display:none;">
+    <div class="card">
+      <h2>Your Note</h2>
+      <div class="char-count" id="noteOutputCount" style="margin-bottom:12px;">0 characters</div>
+      <textarea id="noteOutput" rows="6" oninput="noteOutputCharCount()" style="font-size:18px; line-height:1.7;"></textarea>
+
+      <div class="refine-bar" style="margin-top:16px;">
+        <input type="text" id="refineNoteInput" placeholder="Refine... (e.g., 'shorter' or 'hit harder' or 'more confrontational')" onkeydown="if(event.key==='Enter')refineNote()">
+        <button class="btn btn-primary" onclick="refineNote()">Refine</button>
+      </div>
+      <div class="loading" id="loadingRefineNote">
+        <div class="spinner"></div>
+        <span>Refining...</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="resetNote()">Start Over</button>
+      <button class="btn btn-secondary" onclick="copyNote()">Copy</button>
     </div>
   </div>
 
@@ -1594,6 +1660,107 @@ function renderStats() {
     const rate = s.impressions > 0 ? ((s.saves / s.impressions) * 100).toFixed(2) + '%' : '—';
     return `<tr><td>${s.date}</td><td>${s.title}</td><td style="color:var(--gold);font-weight:600;">${s.saves}</td><td>${s.comments}</td><td>${s.likes}</td><td>${s.impressions.toLocaleString()}</td><td>${rate}</td></tr>`;
   }).join('');
+}
+
+// ═══════════════════════════════════
+// NOTES
+// ═══════════════════════════════════
+const N = { edge: 'teach', thought: '', output: '' };
+
+function setNoteEdge(edge, btn) {
+  N.edge = edge;
+  btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function noteCharCount() {
+  const text = document.getElementById('noteInput').value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  const el = document.getElementById('noteInputCount');
+  el.textContent = `${words} / 100 words`;
+  el.className = 'char-count' + (words > 100 ? ' warning' : '');
+}
+
+function noteOutputCharCount() {
+  const n = document.getElementById('noteOutput').value.length;
+  document.getElementById('noteOutputCount').textContent = `${n} characters`;
+}
+
+async function generateNote() {
+  const thought = document.getElementById('noteInput').value.trim();
+  if (!thought) return;
+  N.thought = thought;
+
+  document.getElementById('btnNote').disabled = true;
+  document.getElementById('loadingNote').classList.add('active');
+
+  try {
+    const res = await fetch(API + '/generate-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thought, edge: N.edge })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    N.output = data.note || '';
+    document.getElementById('noteOutput').value = N.output;
+    noteOutputCharCount();
+    document.getElementById('notes-input').style.display = 'none';
+    document.getElementById('notes-output').style.display = 'block';
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    document.getElementById('btnNote').disabled = false;
+    document.getElementById('loadingNote').classList.remove('active');
+  }
+}
+
+async function refineNote() {
+  const feedback = document.getElementById('refineNoteInput').value.trim();
+  if (!feedback) return;
+
+  document.getElementById('loadingRefineNote').classList.add('active');
+
+  try {
+    const res = await fetch(API + '/refine-note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        thought: N.thought,
+        edge: N.edge,
+        current: document.getElementById('noteOutput').value,
+        feedback
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById('noteOutput').value = data.note || '';
+    noteOutputCharCount();
+    document.getElementById('refineNoteInput').value = '';
+  } catch (e) {
+    alert('Refine error: ' + e.message);
+  } finally {
+    document.getElementById('loadingRefineNote').classList.remove('active');
+  }
+}
+
+function copyNote() {
+  navigator.clipboard.writeText(document.getElementById('noteOutput').value).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+function resetNote() {
+  document.getElementById('notes-input').style.display = 'block';
+  document.getElementById('notes-output').style.display = 'none';
+  document.getElementById('noteInput').value = '';
+  document.getElementById('noteInputCount').textContent = '0 / 100 words';
+  N.thought = ''; N.output = '';
 }
 </script>
 </body>
