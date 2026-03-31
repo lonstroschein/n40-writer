@@ -291,7 +291,7 @@ window.addEventListener('load', function() {
   <button class="active" onclick="showSection('create', this)">Create</button>
   <button onclick="showSection('notes', this)">Notes</button>
   <button onclick="showSection('recycle', this)">Recycle</button>
-  <button onclick="showSection('library', this)">Library</button>
+  <button onclick="showSection('vault', this)">Vault</button>
   <button onclick="showSection('analytics', this)">Analytics</button>
 </nav>
 
@@ -694,12 +694,127 @@ window.addEventListener('load', function() {
 
 </div>
 
-<!-- ═══════════ LIBRARY ═══════════ -->
-<div class="section" id="section-library">
-  <h1 style="font-size:32px; font-weight:600; margin-bottom:24px;">Content Library</h1>
-  <div id="libraryGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:20px;">
-    <p style="color:var(--text-faint); font-style:italic; grid-column:1/-1; text-align:center; padding:60px 0;">No content saved yet.</p>
+<!-- ═══════════ VAULT ═══════════ -->
+<div class="section" id="section-vault">
+
+  <div style="margin-bottom:32px;">
+    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">Post Vault</h1>
+    <p style="color:var(--text-dim); font-size:15px;">2,350 LinkedIn posts ranked by engagement. Pick one, recycle it — fresh LinkedIn post + Substack article + branded image in seconds.</p>
   </div>
+
+  <!-- Filters -->
+  <div class="card" style="padding:20px 36px;">
+    <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+      <input type="text" id="vaultSearch" placeholder="Search posts..." style="flex:1; min-width:200px;" oninput="vaultDebounceSearch()">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Show:</span>
+        <button class="pill active" onclick="setVaultFilter('all',this)">All</button>
+        <button class="pill" onclick="setVaultFilter('top',this)">Top Performers</button>
+        <button class="pill" onclick="setVaultFilter('long',this)">Long-Form</button>
+        <button class="pill" onclick="setVaultFilter('short',this)">Short & Punchy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vault list -->
+  <div id="vault-browse">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:24px 0 16px;">
+      <div id="vaultResultCount" style="font-size:13px; font-family:'DM Mono',monospace; color:var(--text-faint);"></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-ghost" id="vaultPrev" onclick="vaultPage(-1)" disabled>&larr; Prev</button>
+        <button class="btn btn-ghost" id="vaultNext" onclick="vaultPage(1)">Next &rarr;</button>
+      </div>
+    </div>
+
+    <div id="vaultList"></div>
+
+    <div class="loading" id="loadingVault">
+      <div class="spinner"></div>
+      <span>Loading vault...</span>
+    </div>
+  </div>
+
+  <!-- Vault recycle output -->
+  <div id="vault-output" style="display:none;">
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom:24px;">
+      <button class="btn btn-ghost" onclick="backToVault()">&larr; Back to Vault</button>
+      <div style="font-size:13px; font-family:'DM Mono',monospace; color:var(--text-faint);">RECYCLING POST FROM <span id="vaultRecycleDate"></span></div>
+    </div>
+
+    <!-- Original -->
+    <div class="card" style="border-left:3px solid var(--text-faint); margin-bottom:24px;">
+      <h2>Original Post</h2>
+      <div id="vaultOriginalText" style="font-size:14px; color:var(--text-dim); line-height:1.7; white-space:pre-wrap; max-height:200px; overflow-y:auto;"></div>
+    </div>
+
+    <div class="loading" id="loadingVaultRecycle">
+      <div class="spinner"></div>
+      <span>Rewriting for today's algorithm + generating Substack article...</span>
+    </div>
+
+    <!-- Image preview -->
+    <div id="vaultImageSection" style="display:none; margin-bottom:32px;">
+      <h3 style="font-size:13px; font-family:'DM Mono',monospace; color:var(--gold); text-transform:uppercase; letter-spacing:2px; margin-bottom:16px;">Branded Image</h3>
+      <div class="recycle-preview-row">
+        <div class="preview-frame" id="vaultPreviewFrame"></div>
+        <div>
+          <p style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:16px;">Preview at 50%.</p>
+          <div class="btn-row" style="justify-content:flex-start;">
+            <button class="btn btn-secondary" onclick="downloadVaultPDF()">Download PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LinkedIn post -->
+    <div id="vaultLinkedInSection" style="display:none;">
+      <div class="post-box">
+        <h3>LinkedIn Post</h3>
+        <div class="char-count" id="vaultCharCount">0 / 1,500</div>
+        <textarea id="vaultPostText" rows="14" oninput="countVaultChars()"></textarea>
+        <div class="refine-bar">
+          <input type="text" id="refineVaultPost" placeholder="Refine LinkedIn post..." onkeydown="if(event.key==='Enter')refineVaultContent('post')">
+          <button class="btn btn-primary" onclick="refineVaultContent('post')">Refine Post</button>
+        </div>
+        <div class="loading" id="loadingRefineVaultPost">
+          <div class="spinner"></div>
+          <span>Refining post...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Substack -->
+    <div id="vaultSubstackSection" style="display:none; margin-top:32px;">
+      <div class="post-box">
+        <h3>Substack Article</h3>
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+          <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">TITLE:</div>
+          <input type="text" id="vaultSubstackTitle" style="flex:1; font-size:18px; font-weight:600;">
+        </div>
+        <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+          <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">SUBTITLE:</div>
+          <input type="text" id="vaultSubstackSubtitle" style="flex:1; font-size:14px; color:var(--text-dim);">
+        </div>
+        <div class="char-count" id="vaultSubstackWordCount">0 words</div>
+        <textarea id="vaultSubstackBody" rows="20" oninput="countVaultSubstackWords()" style="font-size:15px; line-height:1.8;"></textarea>
+        <div class="refine-bar">
+          <input type="text" id="refineVaultSubstack" placeholder="Refine Substack..." onkeydown="if(event.key==='Enter')refineVaultContent('substack')">
+          <button class="btn btn-primary" onclick="refineVaultContent('substack')">Refine Substack</button>
+        </div>
+        <div class="loading" id="loadingRefineVaultSubstack">
+          <div class="spinner"></div>
+          <span>Refining Substack...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:32px;">
+      <button class="btn btn-ghost" onclick="backToVault()">Back to Vault</button>
+      <button class="btn btn-secondary" onclick="copyVaultPost()">Copy LinkedIn</button>
+      <button class="btn btn-secondary" onclick="copyVaultSubstack()">Copy Substack</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- ═══════════ ANALYTICS ═══════════ -->
@@ -780,7 +895,7 @@ function showSection(name, btn) {
   document.getElementById('section-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
   if (name === 'analytics') renderStats();
-  if (name === 'library') renderLibrary();
+  if (name === 'vault') loadVault();
 }
 
 function updateStepDots() {
@@ -1910,6 +2025,274 @@ function resetNote() {
   document.getElementById('noteInput').value = '';
   document.getElementById('noteInputCount').textContent = '0 / 100 words';
   N.thought = ''; N.output = '';
+}
+
+// ═══════════════════════════════════
+// VAULT
+// ═══════════════════════════════════
+const V = {
+  posts: [],
+  total: 0,
+  page: 0,
+  filter: 'all',
+  search: '',
+  searchTimer: null,
+  current: null,  // currently recycling
+  postText: '',
+  substackTitle: '',
+  substackSubtitle: '',
+  substackBody: '',
+  imageLines: [],
+  imageHTML: ''
+};
+
+function vaultDebounceSearch() {
+  clearTimeout(V.searchTimer);
+  V.searchTimer = setTimeout(() => {
+    V.search = document.getElementById('vaultSearch').value.trim();
+    V.page = 0;
+    loadVault();
+  }, 400);
+}
+
+function setVaultFilter(filter, btn) {
+  V.filter = filter;
+  V.page = 0;
+  btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  loadVault();
+}
+
+function vaultPage(dir) {
+  V.page = Math.max(0, V.page + dir);
+  loadVault();
+}
+
+async function loadVault() {
+  document.getElementById('loadingVault').classList.add('active');
+
+  let params = `page=${V.page}&per_page=25`;
+  if (V.search) params += `&q=${encodeURIComponent(V.search)}`;
+  if (V.filter === 'top') params += '&min_comments=5';
+  if (V.filter === 'long') params += '&min_chars=1500';
+  if (V.filter === 'short') params += '&min_chars=0';
+
+  // For short filter, we'll filter client-side
+  try {
+    const res = await fetch(API + '/vault?' + params);
+    const data = await res.json();
+    V.posts = data.posts || [];
+    V.total = data.total || 0;
+
+    // Client-side filter for "short"
+    if (V.filter === 'short') {
+      V.posts = V.posts.filter(p => p.char_count <= 800);
+    }
+
+    renderVault();
+  } catch (e) {
+    document.getElementById('vaultList').innerHTML = '<p style="color:var(--danger);">Failed to load vault.</p>';
+  } finally {
+    document.getElementById('loadingVault').classList.remove('active');
+  }
+}
+
+function renderVault() {
+  const el = document.getElementById('vaultList');
+  document.getElementById('vaultResultCount').textContent = `${V.total.toLocaleString()} posts · Page ${V.page + 1}`;
+  document.getElementById('vaultPrev').disabled = V.page === 0;
+  document.getElementById('vaultNext').disabled = (V.page + 1) * 25 >= V.total;
+
+  if (!V.posts.length) {
+    el.innerHTML = '<p style="color:var(--text-faint); text-align:center; padding:60px 0;">No posts match your filters.</p>';
+    return;
+  }
+
+  el.innerHTML = V.posts.map((p, i) => {
+    const date = p.date ? p.date.substring(0, 10) : '';
+    const hook = escapeHTML(p.text.substring(0, 180).replace(/\n/g, ' '));
+    const commentsBadge = p.comments > 0
+      ? `<span style="background:var(--gold); color:var(--bg); padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700;">${p.comments} comments</span>`
+      : '';
+    const mediaBadge = p.media_type
+      ? `<span style="background:rgba(80,200,120,0.15); color:var(--success); padding:3px 10px; border-radius:12px; font-size:11px;">${p.media_type}</span>`
+      : '';
+    const charLabel = p.char_count > 1500 ? 'long-form' : p.char_count < 600 ? 'short' : 'medium';
+
+    return `<div class="card" style="padding:20px 28px; margin-bottom:12px; cursor:pointer; transition:all 0.15s;" onmouseenter="this.style.borderColor='var(--border-active)'" onmouseleave="this.style.borderColor=''" onclick="selectVaultPost(${i})">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint);">${date}</span>
+            <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint);">${p.char_count} chars · ${charLabel}</span>
+            ${commentsBadge} ${mediaBadge}
+          </div>
+          <div style="font-size:15px; line-height:1.5; color:var(--text);">${hook}${p.text.length > 180 ? '...' : ''}</div>
+        </div>
+        <button class="btn btn-primary" style="padding:8px 20px; white-space:nowrap; flex-shrink:0;" onclick="event.stopPropagation(); selectVaultPost(${i})">Recycle</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHTML(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function selectVaultPost(idx) {
+  const post = V.posts[idx];
+  V.current = post;
+
+  // Show output view
+  document.getElementById('vault-browse').style.display = 'none';
+  document.getElementById('vault-output').style.display = 'block';
+  document.getElementById('vaultRecycleDate').textContent = post.date ? post.date.substring(0, 10) : 'archive';
+  document.getElementById('vaultOriginalText').textContent = post.text;
+
+  // Reset output sections
+  document.getElementById('vaultImageSection').style.display = 'none';
+  document.getElementById('vaultLinkedInSection').style.display = 'none';
+  document.getElementById('vaultSubstackSection').style.display = 'none';
+
+  // Start recycling
+  document.getElementById('loadingVaultRecycle').classList.add('active');
+
+  try {
+    const res = await fetch(API + '/vault-recycle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        original: post.text,
+        original_date: post.date ? post.date.substring(0, 10) : ''
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // LinkedIn
+    V.postText = data.postText || '';
+    document.getElementById('vaultPostText').value = V.postText;
+    countVaultChars();
+    document.getElementById('vaultLinkedInSection').style.display = 'block';
+
+    // Substack
+    V.substackTitle = data.substackTitle || '';
+    V.substackSubtitle = data.substackSubtitle || '';
+    V.substackBody = data.substackBody || '';
+    document.getElementById('vaultSubstackTitle').value = V.substackTitle;
+    document.getElementById('vaultSubstackSubtitle').value = V.substackSubtitle;
+    document.getElementById('vaultSubstackBody').value = V.substackBody;
+    countVaultSubstackWords();
+    document.getElementById('vaultSubstackSection').style.display = 'block';
+
+    // Image
+    V.imageLines = data.imageLines || [];
+    if (V.imageLines.length) {
+      await preloadPhoto('bg-field.png');
+      V.imageHTML = buildBrandedImageHTML({ lines: V.imageLines }, 'bg-field.png');
+      document.getElementById('vaultPreviewFrame').innerHTML = `<iframe srcdoc="${V.imageHTML.replace(/"/g, '&quot;')}"></iframe>`;
+      document.getElementById('vaultImageSection').style.display = 'block';
+    }
+
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    document.getElementById('loadingVaultRecycle').classList.remove('active');
+  }
+}
+
+function backToVault() {
+  document.getElementById('vault-output').style.display = 'none';
+  document.getElementById('vault-browse').style.display = 'block';
+}
+
+function countVaultChars() {
+  const n = document.getElementById('vaultPostText').value.length;
+  const el = document.getElementById('vaultCharCount');
+  el.textContent = `${n.toLocaleString()} / 1,500`;
+  el.className = 'char-count' + (n > 1500 ? ' warning' : n >= 1050 ? ' good' : '');
+}
+
+function countVaultSubstackWords() {
+  const text = document.getElementById('vaultSubstackBody').value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  document.getElementById('vaultSubstackWordCount').textContent = `${words} words`;
+}
+
+async function refineVaultContent(type) {
+  const feedbackEl = type === 'post' ? 'refineVaultPost' : 'refineVaultSubstack';
+  const loadingEl = type === 'post' ? 'loadingRefineVaultPost' : 'loadingRefineVaultSubstack';
+  const feedback = document.getElementById(feedbackEl).value.trim();
+  if (!feedback) return;
+
+  document.getElementById(loadingEl).classList.add('active');
+
+  try {
+    const current = type === 'post'
+      ? document.getElementById('vaultPostText').value
+      : `Title: ${document.getElementById('vaultSubstackTitle').value}\nSubtitle: ${document.getElementById('vaultSubstackSubtitle').value}\n\n${document.getElementById('vaultSubstackBody').value}`;
+
+    const res = await fetch(API + '/refine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: type === 'post' ? 'post' : 'substack',
+        current,
+        feedback,
+        topic: V.current ? V.current.text.substring(0, 200) : '',
+        history: []
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    if (type === 'post') {
+      document.getElementById('vaultPostText').value = data.refined || '';
+      countVaultChars();
+    } else {
+      document.getElementById('vaultSubstackBody').value = data.refined || '';
+      countVaultSubstackWords();
+    }
+    document.getElementById(feedbackEl).value = '';
+  } catch (e) {
+    alert('Refine error: ' + e.message);
+  } finally {
+    document.getElementById(loadingEl).classList.remove('active');
+  }
+}
+
+function copyVaultPost() {
+  navigator.clipboard.writeText(document.getElementById('vaultPostText').value).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+function copyVaultSubstack() {
+  const title = document.getElementById('vaultSubstackTitle').value;
+  const subtitle = document.getElementById('vaultSubstackSubtitle').value;
+  const body = document.getElementById('vaultSubstackBody').value;
+  const full = `# ${title}\n## ${subtitle}\n\n${body}`;
+  navigator.clipboard.writeText(full).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+async function downloadVaultPDF() {
+  try {
+    const jsPDF = window._getJsPDF();
+    const iframe = document.querySelector('#vaultPreviewFrame iframe');
+    const canvas = await html2canvas(iframe.contentDocument.body, { width:1080, height:1080, scale:2, useCORS:true });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation:'portrait', unit:'px', format:[1080,1080] });
+    pdf.addImage(imgData, 'PNG', 0, 0, 1080, 1080);
+    pdf.save('n40-vault-recycle.pdf');
+  } catch(e) { alert('PDF error: ' + e.message); }
 }
 </script>
 </body>

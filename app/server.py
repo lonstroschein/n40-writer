@@ -730,6 +730,120 @@ Return ONLY the refined note text. No JSON. No quotes. No explanation.""",
     return jsonify({'note': note})
 
 
+@app.route('/api/vault', methods=['GET'])
+def vault():
+    """Serve the post vault — ranked LinkedIn history."""
+    vault_path = os.path.join(os.path.dirname(__file__), 'vault.json')
+    if not os.path.exists(vault_path):
+        return jsonify([])
+    with open(vault_path, 'r') as f:
+        posts = json.load(f)
+
+    # Optional filtering
+    search = request.args.get('q', '').lower()
+    min_comments = int(request.args.get('min_comments', 0))
+    min_chars = int(request.args.get('min_chars', 0))
+    page = int(request.args.get('page', 0))
+    per_page = int(request.args.get('per_page', 25))
+
+    if search:
+        posts = [p for p in posts if search in p['text'].lower()]
+    if min_comments:
+        posts = [p for p in posts if p['comments'] >= min_comments]
+    if min_chars:
+        posts = [p for p in posts if p['char_count'] >= min_chars]
+
+    total = len(posts)
+    posts = posts[page * per_page:(page + 1) * per_page]
+
+    return jsonify({'posts': posts, 'total': total, 'page': page, 'per_page': per_page})
+
+
+@app.route('/api/vault-recycle', methods=['POST'])
+def vault_recycle():
+    """Recycle a vault post into fresh LinkedIn + Substack content."""
+    data = request.json
+    original = data.get('original', '')
+    original_date = data.get('original_date', '')
+
+    if not original:
+        return jsonify({'error': 'No post provided'}), 400
+
+    client = get_client()
+
+    msg = client.messages.create(
+        model='claude-sonnet-4-20250514',
+        max_tokens=6000,
+        system=f"""You are the content engine for Lon Stroschein and The Normal 40.
+
+{AVATAR_CONTEXT}
+
+{VOICE_CONTEXT}
+
+{ALGORITHM_CONTEXT}
+
+## YOUR JOB
+
+You are recycling a high-performing LinkedIn post from {original_date or "Lon's archive"}. This post already worked — people responded to it. Your job is to make it SHARPER for today's algorithm while keeping Lon's voice intact.
+
+PRODUCE TWO PIECES OF CONTENT:
+
+### 1. LINKEDIN POST (1,100-1,500 characters)
+EDITING RULES (apply Lon's correction list):
+- If he over-explains after the punch → cut the explanation, trust the line
+- If there are too many one-line paragraphs → let some sentences carry meaning together
+- If big concepts lack anchors → add a real moment or visible cost
+- If it reads like a sermon without story → add lived detail before the declaration
+- If he says "truth" without naming it → write the actual forbidden sentence
+- If multiple ideas compete → sharpen to ONE punch
+- If the framework comes before the wound → flip the order
+- If the same truth gets restated → cut the repetition, advance the idea
+- If intensity has no range → let a calm line break them open
+- If he moves past objections too fast → build the bridge
+
+WHAT YOU KEEP: His exact phrasing when it's strong. His hook if it creates a psychological snap. His signature moves. His specific language and frameworks.
+
+WHAT YOU TIGHTEN: Cut restated lines. Sharpen the hook (under 140 chars). Strengthen the close (3-8 words). Ensure one screenshot-worthy line. End with a question that requires a story (NOT yes/no). Exactly 3 hashtags at the end. NO URLs, links, "DM me", or "link in comments."
+
+### 2. SUBSTACK ARTICLE (800-1,200 words)
+Same core idea, expanded into an article:
+- Title: punchy, under 60 chars, no clickbait
+- Subtitle: one clarifying sentence
+- Body: Open with a story or scene. Go deeper than the LinkedIn post. Add context, research, examples. End with a clear framework or takeaway. Use Lon's voice throughout — second person, direct, conversational.
+- Include a section break (---) between major sections
+- NO CTAs, NO links, NO "subscribe" asks
+
+### 3. IMAGE TEXT
+For a branded 1080x1080 image overlay:
+- 3-5 short lines, each under 8 words
+- Pull from the post's STRONGEST line
+- Last line lands the punch
+- Billboard test: readable in 3 seconds
+- NO URLs, hashtags, or attribution
+
+Return ONLY valid JSON:
+{{
+  "postText": "the LinkedIn post",
+  "substackTitle": "article title",
+  "substackSubtitle": "subtitle",
+  "substackBody": "full article body",
+  "imageLines": ["line 1", "line 2", "line 3"]
+}}
+
+No markdown fences. No explanation. Just the JSON.""",
+        messages=[{'role': 'user', 'content': f'Original post ({original_date}):\n\n{original}'}]
+    )
+
+    try:
+        text = msg.content[0].text.strip()
+        if text.startswith('```'):
+            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+        result = json.loads(text)
+        return jsonify(result)
+    except (json.JSONDecodeError, IndexError) as e:
+        return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
+
+
 @app.route('/api/stats', methods=['GET', 'POST'])
 def stats():
     """In-memory analytics stats (no filesystem needed)."""
