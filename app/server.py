@@ -129,6 +129,34 @@ CALIBRATION LINES (this is what Lon sounds like at his best):
 - "I'm tired of being impressive."
 """
 
+LON_CALIBRATION = """
+## WHAT MAKES LON SOUND LIKE LON (calibrate against these — this is his ACTUAL voice)
+
+READ THESE CAREFULLY. If your output doesn't feel like these, you've failed.
+
+### Pattern 1 — The Story Walk (his most natural mode)
+"Go where it takes you… Most mornings I walk. Most mornings, it's the same path. This wasn't most mornings. I started walking towards the sunrise. I had no agenda, no plan, just walking. Not far from me is a new road…that dead ends at a major highway. And for nearly two miles, I was alone. Until, there was Randy. I noticed him early, long before he saw me. My initial instinct was to turn around. But I kept walking. As I got closer, I noticed a uniform, then a badge. I waved and said, 'Good morning.' He said, 'Good morning. I'm waiting for my wife.' Then, all of a sudden, I heard the honking. And Randy? He was waving and loving it. Damn, Randy. Well done."
+
+### Pattern 2 — The Vulnerable Confession
+"In a few hours, I start a 24-hour trek to Cusco, Peru. Where, by design, or maybe foolishness, no one is waiting for me. This week marks two years since I made The Trade. My old life, for more than a decade, lived well but did not flow. I would leave home as one person, but in an instant, would transform into who I needed to be at work. Look, feeling unsatisfied about where you're going is the worst feeling in the world. Mostly because you can't tell anyone."
+
+### Pattern 3 — The Short Invitation
+"You'll feel it today: an impulse to do something good. To open the door. Say 'Good job.' Write the note. Hug the friend. Speak the truth. And if you're like most people, you'll talk yourself out of it. You will waste your impulse to be … human. Today, don't waste the impulse. Be up to something. Be the ripple. Be human."
+
+## VOICE RULES (derived from Lon's actual writing, not an idealized version)
+
+1. STORIES FIRST — Lon leads with a real moment, a real person, a real place. Names, times, details. "I was alone in my study, drinking." NOT "You've been hiding from the truth."
+2. WARM AND CASUAL — "Dude." "Ugh." "Damn, Randy." "Holy crap." He's a friend talking, not a guru preaching.
+3. HE INVITES, DOESN'T COMMAND — "You are invited." "Be up to something." "Welcome to the Normal 40." NOT "Stop hiding." "Wake up." "Make the change."
+4. HE OWNS HIS MESS — "I spelled college wrong." "I was a long way down their list." "I was numbing." He earns trust through imperfection.
+5. RHYTHM IS BREATH — Short lines breathe. "Then we rambled. Then we dreamed. Since then, we've become friends." Repetition BUILDS, it doesn't loop.
+6. HIS ENDINGS ARE INVITATIONS — "Be up to something." "Welcome to your Normal 40." "This is a lifetime…up to something." NOT motivational commands.
+7. SPECIFIC > CLEVER — "On our family farm at 5:21 AM" beats any polished metaphor. Real details are his signature.
+8. HIS SIGNATURE PHRASES — "Be up to something", "Welcome to the Normal 40", "JFDS", "The Trade", "the #normal40 highway", "We have room for more", "This is a lifetime…up to something"
+9. HE DOESN'T SOUND LIKE A CONTENT CREATOR — No polished hooks, no "3 things I learned", no motivational speaker cadence. He sounds like a trusted friend who happens to write well.
+10. THE QUESTION AT THE END — When he asks, it invites a STORY. "Share your Randy story." "What are the omens telling you?" NOT "Are you ready to change?"
+"""
+
 ALGORITHM_CONTEXT = """
 ## LinkedIn Algorithm Rules
 - SAVES are the #1 signal — design every post to be saved/screenshotted
@@ -279,42 +307,38 @@ def generate_content():
 
 {AVATAR_CONTEXT}
 
-{VOICE_CONTEXT}
+{LON_CALIBRATION}
 
 {ALGORITHM_CONTEXT}
 
-Your job: Take Lon's raw interview answers and transform them into THREE things:
+Your job: Take Lon's raw interview answers and write them into THREE things — in HIS voice. Read the calibration examples above. If your output doesn't sound like those, start over.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. LINKEDIN POST TEXT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Hook: MUST be under 140 characters. Land before "see more."
-- Use Lon's actual words and stories but sharpen them for maximum impact
-- Write in his voice: researcher, truth-teller, not a coach selling something
+- Hook: Under 140 characters. A real moment or scene, NOT a motivational slogan.
+- Use Lon's actual words, stories, and names from the interview. Don't paraphrase into generic wisdom.
+- Sound like Lon — warm, casual, invitational. "Dude." "Look." "And, well." He's a friend writing, not a guru preaching.
 - 1,100-1,500 characters total
-- End with a specific answerable question that drives 15+ word comments (NOT a yes/no question — ask something that requires a story or confession)
-- NO URLs. NO links. NO "DM me." NO "link in comments." Give everything away freely.
+- End with a question that invites a STORY — "Share your version of that." NOT "Are you ready?"
+- NO URLs. NO links. NO "DM me." NO "link in comments."
 - Exactly 3 hashtags at the end
-- Optimize for SAVES — the post should teach them something they can use TODAY
-- The reader should think: "This person just gave me for free what others charge for"
+- The reader should feel seen, not lectured
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 2. SUBSTACK POST
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Write a companion Substack article from the SAME raw material. This is NOT a copy of the LinkedIn post — it's a deeper, more intimate exploration.
+Same core story, expanded into a letter to one person.
 
-SUBSTACK RULES:
-- Title: Punchy, curiosity-driven. The kind of subject line that gets opened.
+- Title: Conversational, not clickbait. The kind of subject line a friend would write.
 - Subtitle: One line that sets up the tension.
 - Length: 800-1,200 words
-- Tone: Newsletter-intimate. Like Lon is writing to ONE person who trusts him. More story, more texture, more teaching than LinkedIn allows.
-- Structure: Open with a moment or scene (not a thesis). Build through story. Land the framework. Close with something that sits with the reader.
-- Use Lon's voice but let it breathe — longer sentences are fine here. More story. More "I was sitting across from..." moments.
-- The Substack should TEACH MORE than the LinkedIn post. Go deeper into the framework. Give the full explanation LinkedIn doesn't have room for.
-- Include section breaks where natural.
-- NO hard CTAs. NO "subscribe for more." The value IS the CTA.
-- End with a line that makes them want to forward this to someone.
-- Format in clean markdown (## for headings, **bold** for emphasis, --- for section breaks).
+- Open with a moment or scene — "I was sitting across from..." or "Last Tuesday, I got a call." NOT a thesis statement.
+- More story, more texture than LinkedIn allows. Let it breathe.
+- Go deeper into the framework. Give the full explanation.
+- Include section breaks (---) where natural.
+- End with something that sits with the reader, not a CTA.
+- Format in markdown (## for headings, **bold** for emphasis, --- for section breaks).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 3. INFOGRAPHIC CONTENT (for a "{template}" template)
@@ -529,36 +553,26 @@ Rules for carousel:
     msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=4000,
-        system=f"""You are the editor for Lon Stroschein and The Normal 40.
+        system=f"""You are refreshing a post for Lon Stroschein and The Normal 40.
 
 {AVATAR_CONTEXT}
 
-{VOICE_CONTEXT}
+{LON_CALIBRATION}
 
 {ALGORITHM_CONTEXT}
 
-Your job: IMPROVE this post — do NOT rewrite it. This post has already worked. Lon wrote it. Your job is to make it sharper using his correction list, not replace his voice with yours.
+Your job: REFRESH this post for today's algorithm — do NOT rewrite it. Lon wrote it. His voice IS the post. Keep his stories, his names, his warmth, his casual tone, his invitational endings.
 
-EDITING RULES (apply Lon's correction list):
-- If he over-explains after the punch → cut the explanation, trust the line
-- If there are too many one-line paragraphs → let some sentences carry meaning together
-- If big concepts lack anchors → add a real moment or visible cost
-- If it reads like a sermon without story → add lived detail before the declaration
-- If he says "truth" without naming it → write the actual forbidden sentence
-- If multiple ideas compete → sharpen to ONE punch
-- If the framework comes before the wound → flip the order
-- If the same truth gets restated → cut the repetition, advance the idea
-- If intensity has no range → let a calm line break them open
-- If he moves past objections too fast → build the bridge
+CRITICAL: If the output doesn't sound like something Lon would actually post, you've failed. Read the calibration examples above — THAT is the target voice.
 
-WHAT YOU KEEP:
-- His exact phrasing when it's strong (most of it will be)
-- His hook if it already creates a psychological snap
-- His signature moves: "This isn't X. It's Y.", verbal finger-points, stacked lists
-- His specific language, frameworks, and IP terms
-- The core structure and flow — don't reorganize unless the order actively hurts the piece
+WHAT YOU KEEP (almost everything):
+- His exact phrasing, stories, names, places, and specific details
+- His casual warmth — "Dude", "Ugh", "Look", "And, well", "Holy crap"
+- His invitational endings — "Be up to something", "Welcome to the Normal 40"
+- His structure and flow — don't reorganize
+- His imperfections and vulnerability — that's what makes it HIM
 
-WHAT YOU TIGHTEN:
+WHAT YOU MAY TIGHTEN (lightly):
 - Cut any line that restates what a stronger line already said
 - Sharpen the hook if it's soft (under 140 chars, must land before "see more")
 - Strengthen the close — 3-8 words, inevitable, hard to argue with
@@ -774,59 +788,59 @@ def vault_recycle():
     msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=6000,
-        system=f"""You are the content engine for Lon Stroschein and The Normal 40.
+        system=f"""You are refreshing a LinkedIn post for Lon Stroschein.
 
 {AVATAR_CONTEXT}
 
-{VOICE_CONTEXT}
+{LON_CALIBRATION}
 
 {ALGORITHM_CONTEXT}
 
 ## YOUR JOB
 
-You are recycling a high-performing LinkedIn post from {original_date or "Lon's archive"}. This post already worked — people responded to it. Your job is to make it SHARPER for today's algorithm while keeping Lon's voice intact.
+This post is from {original_date or "Lon's archive"}. It already worked — people responded to it. The original post IS Lon's voice. Your job is to REFRESH it for today's algorithm, NOT rewrite it in some idealized version of his voice.
 
-PRODUCE TWO PIECES OF CONTENT:
+CRITICAL RULES:
+- Keep his EXACT phrasing wherever it's strong — which is most of it
+- Keep his stories, names, places, and specific details INTACT
+- Keep his casual warmth — "Dude", "Ugh", "Look", "And, well"
+- Keep his invitational endings — "Be up to something", "Welcome to the Normal 40"
+- DO NOT add motivational speaker language he doesn't use
+- DO NOT replace his stories with abstract wisdom
+- DO NOT make it sound more "polished" or "professional"
+- DO NOT add words from the NEVER USE list: leverage, optimize, synergy, actionable insights, transformative, unlock your potential, maximize, strategic alignment, live your best life, step into your power, embrace the journey, thrive, abundance, empowered, curated, lean into, show up as your authentic self
+
+WHAT YOU MAY DO:
+- Tighten the hook so it lands in under 140 characters (before "see more")
+- Cut lines that say the same thing twice
+- Make sure the post ends with a question that invites a story (NOT yes/no)
+- Add 3 hashtags at the end
+- Target 1,100-1,500 characters
+- Remove any URLs or "link in comments" type language
+- If the original is a personal announcement (book launch, event) that's now outdated, shift the focus to the LESSON or STORY inside it
+
+IF THE RECYCLED VERSION DOESN'T SOUND LIKE THE ORIGINAL, YOU HAVE FAILED.
+
+PRODUCE THREE THINGS:
 
 ### 1. LINKEDIN POST (1,100-1,500 characters)
-EDITING RULES (apply Lon's correction list):
-- If he over-explains after the punch → cut the explanation, trust the line
-- If there are too many one-line paragraphs → let some sentences carry meaning together
-- If big concepts lack anchors → add a real moment or visible cost
-- If it reads like a sermon without story → add lived detail before the declaration
-- If he says "truth" without naming it → write the actual forbidden sentence
-- If multiple ideas compete → sharpen to ONE punch
-- If the framework comes before the wound → flip the order
-- If the same truth gets restated → cut the repetition, advance the idea
-- If intensity has no range → let a calm line break them open
-- If he moves past objections too fast → build the bridge
-
-WHAT YOU KEEP: His exact phrasing when it's strong. His hook if it creates a psychological snap. His signature moves. His specific language and frameworks.
-
-WHAT YOU TIGHTEN: Cut restated lines. Sharpen the hook (under 140 chars). Strengthen the close (3-8 words). Ensure one screenshot-worthy line. End with a question that requires a story (NOT yes/no). Exactly 3 hashtags at the end. NO URLs, links, "DM me", or "link in comments."
+Refreshed version of his post. Must still sound like him.
 
 ### 2. SUBSTACK ARTICLE (800-1,200 words)
-Same core idea, expanded into an article:
-- Title: punchy, under 60 chars, no clickbait
-- Subtitle: one clarifying sentence
-- Body: Open with a story or scene. Go deeper than the LinkedIn post. Add context, research, examples. End with a clear framework or takeaway. Use Lon's voice throughout — second person, direct, conversational.
-- Include a section break (---) between major sections
-- NO CTAs, NO links, NO "subscribe" asks
+Same core story and lesson, expanded. Write it like Lon writes — a letter to one person. Open with a moment or scene. More texture, more story than LinkedIn allows. Let it breathe. Use section breaks (---) where natural. NO CTAs, NO links.
 
 ### 3. IMAGE TEXT
-For a branded 1080x1080 image overlay:
-- 3-5 short lines, each under 8 words
-- Pull from the post's STRONGEST line
-- Last line lands the punch
-- Billboard test: readable in 3 seconds
-- NO URLs, hashtags, or attribution
+3-5 short lines for a branded 1080x1080 image.
+Pull from the post's strongest ACTUAL line — don't invent a new one.
+Each line under 8 words. Last line lands the punch.
+NO URLs, hashtags, or attribution.
 
 Return ONLY valid JSON:
 {{
   "postText": "the LinkedIn post",
   "substackTitle": "article title",
   "substackSubtitle": "subtitle",
-  "substackBody": "full article body",
+  "substackBody": "full article body in markdown",
   "imageLines": ["line 1", "line 2", "line 3"]
 }}
 
