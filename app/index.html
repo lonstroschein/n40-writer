@@ -290,6 +290,7 @@ window.addEventListener('load', function() {
 <nav>
   <button class="active" onclick="showSection('create', this)">Create</button>
   <button onclick="showSection('notes', this)">Notes</button>
+  <button onclick="showSection('trade', this)">The Trade</button>
   <button onclick="showSection('recycle', this)">Recycle</button>
   <button onclick="showSection('vault', this)">Vault</button>
   <button onclick="showSection('analytics', this)">Analytics</button>
@@ -563,6 +564,162 @@ window.addEventListener('load', function() {
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="resetNote()">Start Over</button>
       <button class="btn btn-secondary" onclick="copyNote()">Copy</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════ THE TRADE ═══════════ -->
+<div class="section" id="section-trade">
+
+  <div style="margin-bottom:32px;">
+    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">The Trade</h1>
+    <p style="color:var(--text-dim); font-size:15px;">Pick a chapter. Pick a lens. Teach from the book that started it all — in your voice, with the people it's impacted.</p>
+  </div>
+
+  <!-- Step 1: Choose chapter -->
+  <div id="trade-step-1">
+    <div class="card" style="padding:24px 36px;">
+      <h2>Chapter</h2>
+      <div class="hint" style="margin-bottom:16px;">Which part of The Trade are we teaching from?</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;" id="tradeChapterGrid">
+        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(1, this)" data-ch="1">
+          <h3 style="font-size:15px;">1 — The Awakening</h3>
+          <p style="font-size:12px;">"Is This All There Is?" — when restlessness becomes undeniable</p>
+        </div>
+        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(2, this)" data-ch="2">
+          <h3 style="font-size:15px;">2 — I Guess That Makes Two of Us</h3>
+          <p style="font-size:12px;">The first real trade — when chasing who you're becoming hurts people you love</p>
+        </div>
+        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(3, this)" data-ch="3">
+          <h3 style="font-size:15px;">3 — Maybe My Work Here Is Done</h3>
+          <p style="font-size:12px;">Explore → Invest → Test → Trade — the 4 Phases of Massive Action</p>
+        </div>
+        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(4, this)" data-ch="4">
+          <h3 style="font-size:15px;">4 — The Clock</h3>
+          <p style="font-size:12px;">The Normal 40 Clock — halftime is now, and the second half won't play itself</p>
+        </div>
+        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(5, this)" data-ch="5">
+          <h3 style="font-size:15px;">5 — The Brutal Reality of You</h3>
+          <p style="font-size:12px;">The cost of silence + the other side of the marriage</p>
+        </div>
+        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(6, this)" data-ch="6">
+          <h3 style="font-size:15px;">6 — The Box</h3>
+          <p style="font-size:12px;">The prison you celebrated + the 5 D's + the choice to Decide</p>
+        </div>
+        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(7, this)" data-ch="7">
+          <h3 style="font-size:15px;">7 — The Action & The Financials</h3>
+          <p style="font-size:12px;">Movement and money — how to test, fund, and make the trade</p>
+        </div>
+        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(8, this)" data-ch="8">
+          <h3 style="font-size:15px;">8 — The Trade of a Lifetime</h3>
+          <p style="font-size:12px;">Legacy, mortality, courage — "Your final line is still unwritten"</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:24px 36px;">
+      <h2>Lens</h2>
+      <div class="hint" style="margin-bottom:16px;">How do you want to teach this?</div>
+      <div class="option-pills">
+        <button class="pill active" onclick="setTradeLens('framework',this)">Framework</button>
+        <button class="pill" onclick="setTradeLens('story',this)">Story</button>
+        <button class="pill" onclick="setTradeLens('confession',this)">Confession</button>
+        <button class="pill" onclick="setTradeLens('reframe',this)">Reframe</button>
+        <button class="pill" onclick="setTradeLens('challenge',this)">Challenge</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:24px 36px;">
+      <h2>Your Angle</h2>
+      <div class="hint" style="margin-bottom:8px;">What's the specific thing you want to say about this chapter? A memory, a person, something you'd tell someone across a table. Or leave blank and let the engine pull the strongest teaching from the chapter.</div>
+      <textarea id="tradeAngle" rows="3" placeholder="Optional — e.g., 'I was thinking about Tim today and how he didn't wait for permission...' or 'The clock diagram hits different after 50...'"></textarea>
+    </div>
+
+    <!-- Photo section (placeholder for impact photos) -->
+    <div class="card" style="padding:24px 36px;">
+      <h2>Impact Photo</h2>
+      <div class="hint" style="margin-bottom:16px;">Pick a photo of someone impacted by The Trade for the branded image. (Connect your photo folder to add more.)</div>
+      <div id="tradePhotoGrid" class="photo-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="photo-option selected" onclick="pickTradePhoto('bg-field.png',this)" style="aspect-ratio:auto; height:120px;">
+          <img src="images/bg-field.png" alt="Field" style="width:100%;height:100%;object-fit:cover;">
+          <div class="photo-label">N.40 Ranch</div>
+        </div>
+        <div class="photo-option" onclick="pickTradePhoto('bg-ranch.png',this)" style="aspect-ratio:auto; height:120px;">
+          <img src="images/bg-ranch.png" alt="Ranch" style="width:100%;height:100%;object-fit:cover;">
+          <div class="photo-label">Ranch Wide</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="loading" id="loadingTrade">
+      <div class="spinner"></div>
+      <span>Building from The Trade...</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnTrade" onclick="generateTrade()">Build It</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Output -->
+  <div id="trade-step-2" style="display:none;">
+
+    <!-- Image preview -->
+    <div id="tradeImageSection" style="margin-bottom:32px;">
+      <h3 style="font-size:13px; font-family:'DM Mono',monospace; color:var(--gold); text-transform:uppercase; letter-spacing:2px; margin-bottom:16px;">Branded Image</h3>
+      <div class="recycle-preview-row">
+        <div class="preview-frame" id="tradePreviewFrame"></div>
+        <div>
+          <p style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:16px;">Preview at 50%.</p>
+          <div class="btn-row" style="justify-content:flex-start;">
+            <button class="btn btn-secondary" onclick="downloadTradePDF()">Download PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LinkedIn post -->
+    <div class="post-box">
+      <h3>LinkedIn Post</h3>
+      <div class="char-count" id="tradeCharCount">0 / 1,500</div>
+      <textarea id="tradePostText" rows="14" oninput="countTradeChars()"></textarea>
+      <div class="refine-bar">
+        <input type="text" id="refineTradePost" placeholder="Refine LinkedIn post..." onkeydown="if(event.key==='Enter')refineTradeContent('post')">
+        <button class="btn btn-primary" onclick="refineTradeContent('post')">Refine Post</button>
+      </div>
+      <div class="loading" id="loadingRefineTradePost">
+        <div class="spinner"></div>
+        <span>Refining post...</span>
+      </div>
+    </div>
+
+    <!-- Substack -->
+    <div class="post-box" style="margin-top:32px;">
+      <h3>Substack Article</h3>
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+        <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">TITLE:</div>
+        <input type="text" id="tradeSubstackTitle" style="flex:1; font-size:18px; font-weight:600;">
+      </div>
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+        <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">SUBTITLE:</div>
+        <input type="text" id="tradeSubstackSubtitle" style="flex:1; font-size:14px; color:var(--text-dim);">
+      </div>
+      <div class="char-count" id="tradeSubstackWordCount">0 words</div>
+      <textarea id="tradeSubstackBody" rows="20" oninput="countTradeSubstackWords()" style="font-size:15px; line-height:1.8;"></textarea>
+      <div class="refine-bar">
+        <input type="text" id="refineTradeSubstack" placeholder="Refine Substack..." onkeydown="if(event.key==='Enter')refineTradeContent('substack')">
+        <button class="btn btn-primary" onclick="refineTradeContent('substack')">Refine Substack</button>
+      </div>
+      <div class="loading" id="loadingRefineTradeSubstack">
+        <div class="spinner"></div>
+        <span>Refining Substack...</span>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:32px;">
+      <button class="btn btn-ghost" onclick="resetTrade()">Start Over</button>
+      <button class="btn btn-secondary" onclick="copyTradePost()">Copy LinkedIn</button>
+      <button class="btn btn-secondary" onclick="copyTradeSubstack()">Copy Substack</button>
     </div>
   </div>
 
@@ -2025,6 +2182,189 @@ function resetNote() {
   document.getElementById('noteInput').value = '';
   document.getElementById('noteInputCount').textContent = '0 / 100 words';
   N.thought = ''; N.output = '';
+}
+
+// ═══════════════════════════════════
+// THE TRADE
+// ═══════════════════════════════════
+const T = {
+  chapter: null,
+  lens: 'framework',
+  angle: '',
+  photo: 'bg-field.png',
+  postText: '',
+  substackTitle: '',
+  substackSubtitle: '',
+  substackBody: '',
+  imageLines: [],
+  imageHTML: ''
+};
+
+function pickTradeChapter(num, el) {
+  T.chapter = num;
+  document.querySelectorAll('#tradeChapterGrid .template-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function setTradeLens(lens, btn) {
+  T.lens = lens;
+  btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function pickTradePhoto(file, el) {
+  T.photo = file;
+  document.querySelectorAll('#tradePhotoGrid .photo-option').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function generateTrade() {
+  if (!T.chapter) { alert('Pick a chapter first.'); return; }
+
+  T.angle = document.getElementById('tradeAngle').value.trim();
+  document.getElementById('btnTrade').disabled = true;
+  document.getElementById('loadingTrade').classList.add('active');
+
+  try {
+    const res = await fetch(API + '/generate-trade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chapter: T.chapter,
+        lens: T.lens,
+        angle: T.angle
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // LinkedIn
+    T.postText = data.postText || '';
+    document.getElementById('tradePostText').value = T.postText;
+    countTradeChars();
+
+    // Substack
+    T.substackTitle = data.substackTitle || '';
+    T.substackSubtitle = data.substackSubtitle || '';
+    T.substackBody = data.substackBody || '';
+    document.getElementById('tradeSubstackTitle').value = T.substackTitle;
+    document.getElementById('tradeSubstackSubtitle').value = T.substackSubtitle;
+    document.getElementById('tradeSubstackBody').value = T.substackBody;
+    countTradeSubstackWords();
+
+    // Image
+    T.imageLines = data.imageLines || [];
+    if (T.imageLines.length) {
+      await preloadPhoto(T.photo);
+      T.imageHTML = buildBrandedImageHTML({ lines: T.imageLines }, T.photo);
+      document.getElementById('tradePreviewFrame').innerHTML = `<iframe srcdoc="${T.imageHTML.replace(/"/g, '&quot;')}"></iframe>`;
+    }
+
+    document.getElementById('trade-step-1').style.display = 'none';
+    document.getElementById('trade-step-2').style.display = 'block';
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    document.getElementById('btnTrade').disabled = false;
+    document.getElementById('loadingTrade').classList.remove('active');
+  }
+}
+
+function countTradeChars() {
+  const n = document.getElementById('tradePostText').value.length;
+  const el = document.getElementById('tradeCharCount');
+  el.textContent = `${n.toLocaleString()} / 1,500`;
+  el.className = 'char-count' + (n > 1500 ? ' warning' : n >= 1050 ? ' good' : '');
+}
+
+function countTradeSubstackWords() {
+  const text = document.getElementById('tradeSubstackBody').value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  document.getElementById('tradeSubstackWordCount').textContent = `${words} words`;
+}
+
+async function refineTradeContent(type) {
+  const feedbackEl = type === 'post' ? 'refineTradePost' : 'refineTradeSubstack';
+  const loadingEl = type === 'post' ? 'loadingRefineTradePost' : 'loadingRefineTradeSubstack';
+  const feedback = document.getElementById(feedbackEl).value.trim();
+  if (!feedback) return;
+
+  document.getElementById(loadingEl).classList.add('active');
+
+  try {
+    const current = type === 'post'
+      ? document.getElementById('tradePostText').value
+      : `Title: ${document.getElementById('tradeSubstackTitle').value}\nSubtitle: ${document.getElementById('tradeSubstackSubtitle').value}\n\n${document.getElementById('tradeSubstackBody').value}`;
+
+    const res = await fetch(API + '/refine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: type === 'post' ? 'post' : 'substack',
+        current,
+        feedback,
+        topic: 'The Trade — Chapter ' + T.chapter,
+        history: []
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    if (type === 'post') {
+      document.getElementById('tradePostText').value = data.refined || '';
+      countTradeChars();
+    } else {
+      document.getElementById('tradeSubstackBody').value = data.refined || '';
+      countTradeSubstackWords();
+    }
+    document.getElementById(feedbackEl).value = '';
+  } catch (e) {
+    alert('Refine error: ' + e.message);
+  } finally {
+    document.getElementById(loadingEl).classList.remove('active');
+  }
+}
+
+function copyTradePost() {
+  navigator.clipboard.writeText(document.getElementById('tradePostText').value).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+function copyTradeSubstack() {
+  const title = document.getElementById('tradeSubstackTitle').value;
+  const subtitle = document.getElementById('tradeSubstackSubtitle').value;
+  const body = document.getElementById('tradeSubstackBody').value;
+  navigator.clipboard.writeText(`# ${title}\n## ${subtitle}\n\n${body}`).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+async function downloadTradePDF() {
+  try {
+    const jsPDF = window._getJsPDF();
+    const iframe = document.querySelector('#tradePreviewFrame iframe');
+    const canvas = await html2canvas(iframe.contentDocument.body, { width:1080, height:1080, scale:2, useCORS:true });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({ orientation:'portrait', unit:'px', format:[1080,1080] });
+    pdf.addImage(imgData, 'PNG', 0, 0, 1080, 1080);
+    pdf.save('n40-the-trade.pdf');
+  } catch(e) { alert('PDF error: ' + e.message); }
+}
+
+function resetTrade() {
+  document.getElementById('trade-step-1').style.display = 'block';
+  document.getElementById('trade-step-2').style.display = 'none';
+  T.chapter = null;
+  T.angle = '';
+  document.querySelectorAll('#tradeChapterGrid .template-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('tradeAngle').value = '';
 }
 
 // ═══════════════════════════════════

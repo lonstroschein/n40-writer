@@ -744,6 +744,148 @@ Return ONLY the refined note text. No JSON. No quotes. No explanation.""",
     return jsonify({'note': note})
 
 
+TRADE_CHAPTERS = {
+    1: {
+        "title": "The Awakening — Is This All There Is?",
+        "core": """Something is off, you don't know why, and you're finally ready to admit it. This is where restlessness becomes undeniable.
+Key themes: The three phrases people say before they're ready: "I have a great life, but..." / "I just feel like something's missing." / "I'm not sure who I am anymore."
+The problem isn't burnout — it's misalignment. You're not worn out. You're done pretending.
+That first gut punch — the car, the shower, 2am — when you admitted something had to change. That was your first Trade. You just haven't made it yet."""
+    },
+    2: {
+        "title": "I Guess That Makes Two of Us",
+        "core": """The first real trade — the one that hurt people you love. Chasing who you're becoming can cost relationships. That's when you learn what a real trade costs — and why it's still worth it.
+Key themes: "I didn't leave because I hated it. I left because I knew I was done." / The moment someone read your story and said "That's exactly how I feel" / The trade always leaves a mark. That's what makes it real. / You don't have to blow it all up. But you do have to ask: Will I regret not finding out?"""
+    },
+    3: {
+        "title": "Maybe My Work Here Is Done",
+        "core": """The 4 Phases of Massive Action: Explore → Invest → Test → Trade.
+Identity is a process, not a prison. Clarity is earned through motion. This is the permission slip chapter.
+Key themes: "You don't have to quit in order to start. But you have to start if you ever want to feel ready to quit." / Your pattern IS the plan. You're already doing it — just not consciously. / What you're going through is normal. It's predictable. Once you see the pattern, everything feels less random."""
+    },
+    4: {
+        "title": "The Clock — Yours",
+        "core": """The Normal 40 Clock. Life is a four-quarter game. Halftime is now. The second half won't play itself.
+Key themes: "You're not tired. You're at halftime." / This isn't burnout — it's a shift in values, from achievement to alignment, from money to meaning. / There's a day when you stop seeing in quarters and start seeing in decades. That's when you realize you don't want to climb anymore. You want to build. / The clock doesn't wait. You're either using it or losing it."""
+    },
+    5: {
+        "title": "The Brutal Reality of You (+ The Other Side of the Marriage)",
+        "core": """The cost of silence and the power of honesty. You can be successful and deeply disconnected at the same time. Your spouse already knew.
+Key themes: The marriage contract that's 15 years out of date — you gave them security, they gave you loyalty, but it's time to renegotiate. / "You've outgrown your image." / "Your spouse already knows. You're just not talking." / What does your spouse want FOR you? Not FROM you. Have you asked?"""
+    },
+    6: {
+        "title": "The Box + The Awakening + The Choice",
+        "core": """The emotional climax. The prison you built. The events that crack it open. The dare to decide.
+The Box has four walls: The paycheck / The reputation / The family expectations / The image.
+The 5 D's: Downsizing. Divorce. Drinking. Diagnosis. Death. But there's one D that saves everything: Decide.
+Key themes: "Your box looks great from the outside. That's what makes it so dangerous." / "You don't need another D. You need a Decision." / Most people don't change until they're forced. But you can choose to change before you have to."""
+    },
+    7: {
+        "title": "The Action + The Trade & The Financials",
+        "core": """Movement and money. Stop wondering, start calculating. How to test, how to fund it, how to make a trade you won't regret.
+Key themes: "I used my net worth to buy back my life." / "What if a small part of your net worth is your insurance policy against regret?" / The big leap comes after the small step, not before. / "Retirement is a lie if you waste your best years getting there." / The real question isn't "Can I afford it?" — it's "Can I afford not to?" / The cost of regret — not just financial, but emotional, relational, spiritual."""
+    },
+    8: {
+        "title": "The Trade of a Lifetime — Your Final Line",
+        "core": """Legacy, mortality, and courage. The mirror, one last time.
+Key themes: "Your final line is still unwritten." / "Will your final line be: 'I'm glad I did.' Or: 'I wish I would have tried.'" / You still have time. / What are you willing to trade to become who you're capable of being? / "You're not late. You're just early — if you start now." / This isn't the end. It's the beginning of everything."""
+    }
+}
+
+
+@app.route('/api/generate-trade', methods=['POST'])
+def generate_trade():
+    """Generate content from a chapter of The Trade book."""
+    data = request.json
+    chapter_num = data.get('chapter', 1)
+    lens = data.get('lens', 'framework')
+    angle = data.get('angle', '')
+
+    chapter = TRADE_CHAPTERS.get(chapter_num, TRADE_CHAPTERS[1])
+
+    lens_instructions = {
+        'framework': 'Pull the core FRAMEWORK from this chapter and teach it. Name the model, the steps, the pattern. Give the reader something they can use today. But wrap it in a story — the way Lon always does.',
+        'story': 'Tell a STORY from this chapter. A real moment — a person, a place, a conversation. Let the teaching come through the story, not after it. The reader should feel like they were there.',
+        'confession': 'Write this as a CONFESSION. Lon admitting something vulnerable about his own journey through this chapter. The kind of thing that makes people DM you "I needed to hear this." Own the mess. Own the doubt.',
+        'reframe': 'Take the biggest idea in this chapter and REFRAME it. Show the reader the thing they\'ve been looking at wrong. Flip the assumption. The ground should shift under their feet.',
+        'challenge': 'CHALLENGE the reader directly from this chapter. Not a sermon — a dare. The kind of thing Lon says across a table: "Look. Here\'s what I know. Here\'s what you\'re avoiding. Here\'s what it\'s costing you."'
+    }.get(lens, '')
+
+    client = get_client()
+
+    angle_line = f"\n\nLon's specific angle for this post:\n{angle}" if angle else ""
+
+    msg = client.messages.create(
+        model='claude-sonnet-4-20250514',
+        max_tokens=6000,
+        system=f"""You are writing content from Lon Stroschein's book "The Trade" — an Amazon #1 Bestseller about elite performers who are winning on paper but dying inside, and the courage it takes to trade what you have for who you're capable of becoming.
+
+{AVATAR_CONTEXT}
+
+{LON_CALIBRATION}
+
+{ALGORITHM_CONTEXT}
+
+## THE CHAPTER
+
+{chapter['title']}
+
+{chapter['core']}
+
+## YOUR JOB
+
+{lens_instructions}
+
+Write as Lon. Not an idealized version — the REAL Lon. Read the calibration examples. He tells stories with real names and places. He's warm and casual. He invites, he doesn't command. He owns his imperfections. His endings are invitations.
+
+PRODUCE THREE THINGS:
+
+### 1. LINKEDIN POST (1,100-1,500 characters)
+- Teach from this chapter in Lon's voice
+- Open with a moment, a memory, or a line from the book — not a motivational slogan
+- The reader should learn something usable. Give everything away.
+- End with a question that invites a STORY, not a yes/no
+- 3 hashtags at the end. NO URLs, links, or CTAs.
+
+### 2. SUBSTACK ARTICLE (800-1,200 words)
+- Same chapter, deeper. A letter to one person.
+- Open with a scene or memory. Let it breathe.
+- Teach the full framework that LinkedIn doesn't have room for.
+- Section breaks (---) where natural.
+- End with something that sits with them. NO CTAs.
+
+### 3. IMAGE TEXT
+- 3-5 short lines for a branded 1080x1080 image
+- Pull from the chapter's strongest line or Lon's actual phrasing
+- Each line under 8 words. Last line lands.
+- NO URLs, hashtags, or attribution.
+
+Return ONLY valid JSON:
+{{
+  "postText": "the LinkedIn post",
+  "substackTitle": "article title",
+  "substackSubtitle": "subtitle",
+  "substackBody": "full article body in markdown",
+  "imageLines": ["line 1", "line 2", "line 3"]
+}}
+
+No markdown fences. No explanation. Just the JSON.""",
+        messages=[{
+            'role': 'user',
+            'content': f'Chapter {chapter_num}: {chapter["title"]}\nLens: {lens}{angle_line}'
+        }]
+    )
+
+    try:
+        text = msg.content[0].text.strip()
+        if text.startswith('```'):
+            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+        result = json.loads(text)
+        return jsonify(result)
+    except (json.JSONDecodeError, IndexError) as e:
+        return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
+
+
 @app.route('/api/vault', methods=['GET'])
 def vault():
     """Serve the post vault — ranked LinkedIn history."""
