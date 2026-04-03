@@ -662,49 +662,122 @@ Return ONLY valid JSON: {{"postText": "refined text"}}""",
 
 @app.route('/api/generate-note', methods=['POST'])
 def generate_note():
-    """Take a short thought and write it as a LinkedIn Note in Lon's voice."""
+    """Take a short thought and write it as a LinkedIn Note — 4 length modes."""
     data = request.json
     thought = data.get('thought', '')
     edge = data.get('edge', 'teach')
+    length = data.get('length', 'note')
 
     if not thought:
         return jsonify({'error': 'No thought provided'}), 400
 
     edge_instructions = {
-        'teach': 'The note should TEACH — give the reader something they can use today. Name the mechanism. Give the language. Make them smarter in 30 seconds.',
-        'reframe': 'The note should REFRAME — take what they believe and flip it. Show them the thing they\'ve been looking at wrong. The reader should feel the ground shift.',
-        'confrontation': 'The note should CONFRONT — call them out with precision and care. Name what they\'re hiding from. Be direct without being cruel. A verbal finger-point that lands.',
-        'truth': 'The note should deliver a TRUTH — say the thing nobody else will say. The sentence people read twice. The one that makes them put their phone down and stare at the ceiling.'
+        'teach': 'The note should TEACH — give the reader something they can use today. Name the mechanism. Give the language.',
+        'reframe': 'The note should REFRAME — take what they believe and flip it. Show them the thing they\'ve been looking at wrong.',
+        'confrontation': 'The note should CONFRONT — call them out with precision and care. Name what they\'re hiding from. Direct without cruel.',
+        'truth': 'The note should deliver a TRUTH — say the thing nobody else will say. The sentence people read twice.'
     }.get(edge, '')
+
+    length_instructions = {
+        'sniper': """## SNIPER MODE — Justin Welsh / Alex Hormozi energy
+
+LENGTH: 1-2 lines. Under 150 characters. That's it.
+
+THIS IS NOT LON'S VOICE. This is algorithm-optimized, pattern-interrupt, scroll-stopping copy.
+
+STUDY THESE PATTERNS:
+
+Justin Welsh style:
+- "The biggest lie in business: 'I don't have time.' You have time. You just don't have priorities."
+- "Stop asking for advice from people who haven't done the thing."
+- "Your network isn't your net worth. Your skills are."
+- "Nobody is coming to save your business. That's the best news you'll hear today."
+
+Alex Hormozi style:
+- "Rich people buy time. Poor people buy stuff."
+- "If you're not embarrassed by what you launched, you waited too long."
+- "The market doesn't care about your feelings. It cares about your value."
+- "You don't need more information. You need more action."
+
+RULES:
+- One line or two. MAX.
+- Hard truth, stated plainly. No warm-up.
+- Contrasts, inversions, and reframes that stop the scroll
+- Punchy. Blunt. Zero fat.
+- NO stories. NO invitations. NO hashtags. NO warmth. Just the hit.
+- The reader should screenshot this and send it to someone.""",
+
+        'punch': """## PUNCH MODE — Sharp and tactical
+
+LENGTH: 3-5 lines. 150-300 characters.
+
+Still in the Welsh/Hormozi zone but with slightly more room. A tight observation with one twist or payoff.
+
+PATTERNS:
+- Open with the contrarian claim
+- One line of proof or context
+- Close with the punchline
+
+Still blunt. Still tactical. NOT Lon's warm storytelling voice — this is content-creator sharp.
+
+RULES:
+- 3-5 lines max
+- No hashtags. No links. No emojis.
+- Every line earns its place
+- The last line should be the one people remember""",
+
+        'note': """## NOTE MODE — Lon's voice, room to breathe
+
+LENGTH: 6-10 lines. 300-600 characters.
+
+THIS IS LON. Read the calibration examples below. Warm. Invitational. Real.
+
+""" + LON_CALIBRATION + """
+
+RULES:
+- 6-10 lines. Let the thought develop.
+- Sound like Lon — casual, warm, invitational
+- Can include a brief moment or image ("I was sitting on the porch..." or "I saw something yesterday...")
+- End with an invitation, not a command — "Be up to something." / "Welcome to the Normal 40."
+- NO hashtags. NO links. NO emojis.""",
+
+        'letter': """## LETTER MODE — Lon at his most personal
+
+LENGTH: 10-20 lines. 600-1200 characters.
+
+This is Lon writing a short letter to one person. A story, a confession, a memory. The kind of thing that makes people DM "I needed this today."
+
+""" + LON_CALIBRATION + """
+
+WHAT THIS SOUNDS LIKE:
+- "I found myself missing the farm this morning..."
+- "Let's take a walk. We've got a few things to talk about."
+- "I saw an old friend yesterday. Actually, a young friend."
+- A real moment. A name. A place. A time. Then the lesson that lives inside it.
+
+RULES:
+- 10-20 lines. Let the story breathe.
+- Sound like Lon — warm, specific, vulnerable, invitational
+- Include a real detail (a place, a time of day, a person's name if relevant)
+- End with his signature: "Be up to something." or "Welcome to the Normal 40." or "This is a lifetime...up to something."
+- NO hashtags at end. NO links. NO emojis."""
+    }.get(length, '')
 
     client = get_client()
 
     msg = client.messages.create(
         model='claude-sonnet-4-20250514',
-        max_tokens=1000,
-        system=f"""You are Lon Stroschein's voice for LinkedIn Notes — short-form posts under 300 characters ideally, never more than 500 characters.
+        max_tokens=2000,
+        system=f"""You are writing a LinkedIn Note.
 
 {AVATAR_CONTEXT}
 
-{VOICE_CONTEXT}
-
-YOUR JOB: Take Lon's raw thought and write it as a LinkedIn Note.
-
 {edge_instructions}
 
-RULES FOR NOTES:
-- SHORT. Under 300 characters is the target. Never exceed 500.
-- Every word earns its place. No filler. No warming up.
-- One idea. One punch. Done.
-- Write like a text from a mentor, not a post from a brand.
-- The reader should screenshot it or sit with it.
-- NO hashtags. NO links. NO emojis. NO "DM me." NO calls to action.
-- Do NOT open with "I" — open with the truth.
-- Use Lon's signature moves: tight contrast ("This isn't X. It's Y."), direct address ("You"), questions that are mirrors ("Can't or won't?")
-- End on a line that sticks. 3-8 words. Inevitable. Hard to argue with.
+{length_instructions}
 
 Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, ready to post.""",
-        messages=[{'role': 'user', 'content': f'Lon\'s thought:\n\n{thought}'}]
+        messages=[{'role': 'user', 'content': f'Raw thought:\n\n{thought}'}]
     )
 
     note = msg.content[0].text.strip()
@@ -717,21 +790,30 @@ def refine_note():
     data = request.json
     thought = data.get('thought', '')
     edge = data.get('edge', 'teach')
+    length = data.get('length', 'note')
     current = data.get('current', '')
     feedback = data.get('feedback', '')
+
+    length_desc = {
+        'sniper': 'SNIPER: 1-2 lines max, under 150 chars. Welsh/Hormozi blunt. No warmth, no stories, just the hit.',
+        'punch': 'PUNCH: 3-5 lines, 150-300 chars. Sharp, tactical, pattern-interrupt. Not Lon\'s warm voice.',
+        'note': 'NOTE: 6-10 lines, 300-600 chars. Lon\'s real voice — warm, invitational, casual. End with an invitation.',
+        'letter': 'LETTER: 10-20 lines, 600-1200 chars. Lon\'s personal voice — story, confession, memory. Real details, real warmth.'
+    }.get(length, '')
 
     client = get_client()
 
     msg = client.messages.create(
         model='claude-sonnet-4-20250514',
-        max_tokens=1000,
-        system=f"""{VOICE_CONTEXT}
+        max_tokens=2000,
+        system=f"""You are refining a LinkedIn Note.
 
-You are refining a LinkedIn Note for Lon Stroschein. Notes are SHORT — under 300 characters ideally, never more than 500.
+Mode: {length_desc}
+Edge: {edge}.
 
-The edge is: {edge}. Apply the feedback precisely. Keep it punchy, direct, and in Lon's voice.
+Apply the feedback precisely. Stay in the mode — if it's sniper/punch, keep it blunt and tactical. If it's note/letter, keep it in Lon's warm voice.
 
-NO hashtags. NO links. NO emojis. NO calls to action.
+NO hashtags. NO links. NO emojis.
 
 Return ONLY the refined note text. No JSON. No quotes. No explanation.""",
         messages=[{
