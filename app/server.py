@@ -276,8 +276,15 @@ NEVER ask more than 6 questions total. By question 5-6, if you don't have enough
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         result = json.loads(text)
         return jsonify(result)
-    except (json.JSONDecodeError, IndexError) as e:
-        return jsonify({'error': f'Failed to parse: {str(e)}', 'raw': msg.content[0].text}), 500
+    except (json.JSONDecodeError, IndexError):
+        raw = msg.content[0].text
+        match = re.search(r'\{[\s\S]*\}', raw)
+        if match:
+            try:
+                return jsonify(json.loads(match.group()))
+            except json.JSONDecodeError:
+                pass
+        return jsonify({'error': 'Claude returned an unexpected format. Try again.'}), 500
 
 
 @app.route('/api/generate-content', methods=['POST'])
@@ -768,7 +775,7 @@ RULES:
     msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=2000,
-        system=f"""You are writing a LinkedIn Note.
+        system=f"""You are shaping Lon Stroschein's raw thought into a LinkedIn Note.
 
 {AVATAR_CONTEXT}
 
@@ -776,8 +783,24 @@ RULES:
 
 {length_instructions}
 
+CRITICAL — KEEP LON'S WORDS:
+You are SHAPING, not rewriting. His words ARE the post.
+
+- USE his exact phrasing, word choices, rhythm
+- DO NOT add stories he didn't mention
+- DO NOT wrap his thought in a narrative
+- DO NOT soften his edge or pad with context
+- You may TIGHTEN (cut words that don't earn their place)
+- You may SHARPEN (make the punchline land harder)
+- You may RESTRUCTURE (reorder for impact — punch first, context second)
+- You may ADD one line max — but it must sound like Lon
+
+Result: A truth bomb. Direct conversation with one reader. Not a story. Not a sermon.
+
+NEVER USE: leverage, optimize, synergy, actionable, transformative, unlock your potential, thrive, abundance, empowered, curated, hacks
+
 Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, ready to post.""",
-        messages=[{'role': 'user', 'content': f'Raw thought:\n\n{thought}'}]
+        messages=[{'role': 'user', 'content': f'Lon\'s raw thought (keep his words, shape don\'t rewrite):\n\n{thought}'}]
     )
 
     note = msg.content[0].text.strip()
