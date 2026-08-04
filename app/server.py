@@ -183,6 +183,11 @@ def get_client():
     return anthropic.Anthropic(api_key=api_key)
 
 
+@app.errorhandler(Exception)
+def handle_error(e):
+    return jsonify({'error': f'Something went wrong — try again. ({type(e).__name__})'}), 503
+
+
 # ─── ROUTES ─────────────────────────────────────────
 
 @app.route('/')

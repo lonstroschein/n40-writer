@@ -271,9 +271,16 @@ window.addEventListener('load', function() {
     .template-grid { grid-template-columns:repeat(2,1fr); }
   }
   @media (max-width:700px) {
-    header, nav, main { padding-left:20px; padding-right:20px; }
+    header, nav, main { padding-left:16px; padding-right:16px; }
+    main { padding-top:20px; padding-bottom:80px; }
     .template-grid { grid-template-columns:1fr; }
     .stats-grid { grid-template-columns:repeat(2,1fr); }
+    nav { gap:6px; flex-wrap:wrap; }
+    nav button { font-size:13px; padding:10px 14px; min-height:44px; }
+    .btn { min-height:48px; font-size:16px; padding:14px 24px; }
+    .pill { min-height:44px; padding:10px 16px; }
+    textarea { font-size:16px !important; }
+    input[type="text"] { font-size:16px !important; }
   }
 </style>
 </head>
@@ -1040,6 +1047,18 @@ const S = {
 
 const API = window.location.hostname === 'localhost' ? 'http://localhost:5555/api' : '/api';
 
+function safeFetch(url, opts = {}, timeoutMs = 90000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: ctrl.signal })
+    .then(r => { clearTimeout(timer); return r; })
+    .catch(e => {
+      clearTimeout(timer);
+      if (e.name === 'AbortError') throw new Error('Request timed out — tap to retry.');
+      throw e;
+    });
+}
+
 // ═══════════════════════════════════
 // INIT
 // ═══════════════════════════════════
@@ -1110,6 +1129,11 @@ function showTemplate() {
 // ═══════════════════════════════════
 // DYNAMIC INTERVIEW (one question at a time)
 // ═══════════════════════════════════
+function showError(msg) {
+  const el = document.getElementById('dynQHint');
+  if (el) el.textContent = msg;
+}
+
 async function startInterview() {
   const topic = document.getElementById('topicInput').value.trim();
   if (!topic) return;
@@ -1122,7 +1146,11 @@ async function startInterview() {
   try {
     await fetchNextQuestion();
   } catch (e) {
-    alert('Error: ' + e.message);
+    showError(e.message + ' Tap Next to retry.');
+    showStep('question');
+    document.getElementById('dynQLabel').textContent = 'Connection issue';
+    document.getElementById('dynQText').textContent = 'The server took too long to respond.';
+    document.getElementById('dynQAnswer').value = S.topic;
   } finally {
     document.getElementById('btnStart').disabled = false;
     document.getElementById('loadingQuestions').classList.remove('active');
@@ -1130,21 +1158,25 @@ async function startInterview() {
 }
 
 async function fetchNextQuestion() {
-  const res = await fetch(API + '/next-question', {
+  const res = await safeFetch(API + '/next-question', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topic: S.topic, history: S.history })
   });
-  const data = await res.json();
+  let data;
+  const text = await res.text();
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Server returned an invalid response. Tap Next to retry.');
+  }
   if (data.error) throw new Error(data.error);
 
   if (data.ready) {
-    // AI says we have enough — go to template
     showStep('template');
     return;
   }
 
-  // Show the new question
   S.currentQ = data;
   const qNum = S.history.length + 1;
   document.getElementById('dynQLabel').textContent = `Question ${qNum} — ${data.label}`;
@@ -1152,7 +1184,6 @@ async function fetchNextQuestion() {
   document.getElementById('dynQHint').textContent = data.hint;
   document.getElementById('dynQAnswer').value = '';
 
-  // Show what's still missing
   if (data.missing && data.missing.length) {
     document.getElementById('dynQMissing').textContent = 'Still building: ' + data.missing.join(' · ');
   } else {
@@ -1167,7 +1198,6 @@ async function submitAnswer() {
   const answer = document.getElementById('dynQAnswer').value.trim();
   if (!answer) return;
 
-  // Save to history
   S.history.push({
     label: S.currentQ.label,
     question: S.currentQ.question,
@@ -1181,7 +1211,7 @@ async function submitAnswer() {
   try {
     await fetchNextQuestion();
   } catch (e) {
-    alert('Error: ' + e.message);
+    showError(e.message + ' Tap Next to retry.');
   } finally {
     document.getElementById('btnNextQ').disabled = false;
     document.getElementById('loadingNextQ').classList.remove('active');
@@ -1200,7 +1230,7 @@ async function skipQuestion() {
   try {
     await fetchNextQuestion();
   } catch (e) {
-    alert('Error: ' + e.message);
+    showError(e.message + ' Tap Next to retry.');
   } finally {
     document.getElementById('loadingNextQ').classList.remove('active');
   }
@@ -1255,7 +1285,7 @@ async function generateContent() {
   document.getElementById('loadingContent').classList.add('active');
 
   try {
-    const res = await fetch(API + '/generate-content', {
+    const res = await safeFetch(API + '/generate-content', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1524,7 +1554,7 @@ async function refineContent(target) {
   document.getElementById(loadingId).classList.add('active');
 
   try {
-    const res = await fetch(API + '/refine', {
+    const res = await safeFetch(API + '/refine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1814,7 +1844,7 @@ async function recyclePost() {
   document.getElementById('loadingRecycle').classList.add('active');
 
   try {
-    const res = await fetch(API + '/recycle', {
+    const res = await safeFetch(API + '/recycle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1932,7 +1962,7 @@ async function refineRecycle(target) {
   document.getElementById(loadingId).classList.add('active');
 
   try {
-    const res = await fetch(API + '/recycle-refine', {
+    const res = await safeFetch(API + '/recycle-refine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2133,7 +2163,7 @@ async function generateNote() {
   document.getElementById('loadingNote').classList.add('active');
 
   try {
-    const res = await fetch(API + '/generate-note', {
+    const res = await safeFetch(API + '/generate-note', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ thought, edge: N.edge, length: N.length })
@@ -2161,7 +2191,7 @@ async function refineNote() {
   document.getElementById('loadingRefineNote').classList.add('active');
 
   try {
-    const res = await fetch(API + '/refine-note', {
+    const res = await safeFetch(API + '/refine-note', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2244,7 +2274,7 @@ async function generateTrade() {
   document.getElementById('loadingTrade').classList.add('active');
 
   try {
-    const res = await fetch(API + '/generate-trade', {
+    const res = await safeFetch(API + '/generate-trade', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2314,7 +2344,7 @@ async function refineTradeContent(type) {
       ? document.getElementById('tradePostText').value
       : `Title: ${document.getElementById('tradeSubstackTitle').value}\nSubtitle: ${document.getElementById('tradeSubstackSubtitle').value}\n\n${document.getElementById('tradeSubstackBody').value}`;
 
-    const res = await fetch(API + '/refine', {
+    const res = await safeFetch(API + '/refine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2437,7 +2467,7 @@ async function loadVault() {
 
   // For short filter, we'll filter client-side
   try {
-    const res = await fetch(API + '/vault?' + params);
+    const res = await safeFetch(API + '/vault?' + params);
     const data = await res.json();
     V.posts = data.posts || [];
     V.total = data.total || 0;
@@ -2516,7 +2546,7 @@ async function selectVaultPost(idx) {
   document.getElementById('loadingVaultRecycle').classList.add('active');
 
   try {
-    const res = await fetch(API + '/vault-recycle', {
+    const res = await safeFetch(API + '/vault-recycle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2590,7 +2620,7 @@ async function refineVaultContent(type) {
       ? document.getElementById('vaultPostText').value
       : `Title: ${document.getElementById('vaultSubstackTitle').value}\nSubtitle: ${document.getElementById('vaultSubstackSubtitle').value}\n\n${document.getElementById('vaultSubstackBody').value}`;
 
-    const res = await fetch(API + '/refine', {
+    const res = await safeFetch(API + '/refine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
