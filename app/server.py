@@ -180,7 +180,7 @@ def get_client():
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
     if not api_key:
         raise ValueError('No ANTHROPIC_API_KEY found. Set it as an environment variable.')
-    return anthropic.Anthropic(api_key=api_key)
+    return anthropic.Anthropic(api_key=api_key, timeout=90.0)
 
 
 @app.errorhandler(Exception)

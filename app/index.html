@@ -49,6 +49,7 @@ window.addEventListener('load', function() {
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden;
   }
 
@@ -272,7 +273,7 @@ window.addEventListener('load', function() {
   }
   @media (max-width:700px) {
     header, nav, main { padding-left:16px; padding-right:16px; }
-    main { padding-top:20px; padding-bottom:80px; }
+    main { padding-top:20px; padding-bottom:300px; }
     .template-grid { grid-template-columns:1fr; }
     .stats-grid { grid-template-columns:repeat(2,1fr); }
     nav { gap:6px; flex-wrap:wrap; }
@@ -281,7 +282,11 @@ window.addEventListener('load', function() {
     .pill { min-height:44px; padding:10px 16px; }
     textarea { font-size:16px !important; }
     input[type="text"] { font-size:16px !important; }
+    .preview-frame { width:100%; height:auto; aspect-ratio:1; }
+    .preview-frame iframe { width:200%; height:200%; transform:scale(0.5); transform-origin:top left; }
+    .recycle-preview-row { grid-template-columns:1fr; }
   }
+  button, .btn, .pill, .template-card, .photo-option { touch-action: manipulation; }
 </style>
 </head>
 <body>
@@ -1130,12 +1135,22 @@ function showTemplate() {
 // DYNAMIC INTERVIEW (one question at a time)
 // ═══════════════════════════════════
 function showError(msg) {
-  const el = document.getElementById('dynQHint');
-  if (el) el.textContent = msg;
+  var el = document.getElementById('dynQHint');
+  if (el) {
+    el.textContent = msg;
+    el.style.color = '#FF914D';
+    el.style.fontStyle = 'normal';
+    el.style.fontWeight = '600';
+  }
+}
+
+function clearError() {
+  var el = document.getElementById('dynQHint');
+  if (el) { el.style.color = ''; el.style.fontStyle = ''; el.style.fontWeight = ''; }
 }
 
 async function startInterview() {
-  const topic = document.getElementById('topicInput').value.trim();
+  var topic = document.getElementById('topicInput').value.trim();
   if (!topic) return;
   S.topic = topic;
   S.history = [];
@@ -1146,11 +1161,12 @@ async function startInterview() {
   try {
     await fetchNextQuestion();
   } catch (e) {
-    showError(e.message + ' Tap Next to retry.');
+    S.currentQ = { label: 'Retry', question: 'Connection issue', hint: '' };
     showStep('question');
     document.getElementById('dynQLabel').textContent = 'Connection issue';
-    document.getElementById('dynQText').textContent = 'The server took too long to respond.';
+    document.getElementById('dynQText').textContent = 'The server took too long. Tap Next to retry.';
     document.getElementById('dynQAnswer').value = S.topic;
+    showError(e.message);
   } finally {
     document.getElementById('btnStart').disabled = false;
     document.getElementById('loadingQuestions').classList.remove('active');
@@ -1158,13 +1174,19 @@ async function startInterview() {
 }
 
 async function fetchNextQuestion() {
-  const res = await safeFetch(API + '/next-question', {
+  var res = await safeFetch(API + '/next-question', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topic: S.topic, history: S.history })
   });
-  let data;
-  const text = await res.text();
+  if (!res.ok) {
+    var errText = await res.text();
+    var errMsg = 'Server error (' + res.status + ')';
+    try { errMsg = JSON.parse(errText).error || errMsg; } catch(e) {}
+    throw new Error(errMsg);
+  }
+  var data;
+  var text = await res.text();
   try {
     data = JSON.parse(text);
   } catch (e) {
@@ -1178,10 +1200,11 @@ async function fetchNextQuestion() {
   }
 
   S.currentQ = data;
-  const qNum = S.history.length + 1;
-  document.getElementById('dynQLabel').textContent = `Question ${qNum} — ${data.label}`;
+  var qNum = S.history.length + 1;
+  document.getElementById('dynQLabel').textContent = 'Question ' + qNum + ' — ' + data.label;
   document.getElementById('dynQText').textContent = data.question;
   document.getElementById('dynQHint').textContent = data.hint;
+  clearError();
   document.getElementById('dynQAnswer').value = '';
 
   if (data.missing && data.missing.length) {
@@ -1191,26 +1214,33 @@ async function fetchNextQuestion() {
   }
 
   showStep('question');
-  document.getElementById('dynQAnswer').focus();
+  var qa = document.getElementById('dynQAnswer');
+  try { qa.focus(); } catch(e) {}
+  qa.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 async function submitAnswer() {
-  const answer = document.getElementById('dynQAnswer').value.trim();
+  var answer = document.getElementById('dynQAnswer').value.trim();
   if (!answer) return;
+  if (!S.currentQ) return;
 
-  S.history.push({
+  var entry = {
     label: S.currentQ.label,
     question: S.currentQ.question,
     answer: answer
-  });
-  renderSidebar();
+  };
 
   document.getElementById('btnNextQ').disabled = true;
   document.getElementById('loadingNextQ').classList.add('active');
 
+  S.history.push(entry);
+  renderSidebar();
+
   try {
     await fetchNextQuestion();
   } catch (e) {
+    S.history.pop();
+    renderSidebar();
     showError(e.message + ' Tap Next to retry.');
   } finally {
     document.getElementById('btnNextQ').disabled = false;
@@ -1219,17 +1249,22 @@ async function submitAnswer() {
 }
 
 async function skipQuestion() {
-  S.history.push({
+  if (!S.currentQ) return;
+  var entry = {
     label: S.currentQ.label,
     question: S.currentQ.question,
     answer: '[skipped]'
-  });
+  };
+
+  S.history.push(entry);
   renderSidebar();
 
   document.getElementById('loadingNextQ').classList.add('active');
   try {
     await fetchNextQuestion();
   } catch (e) {
+    S.history.pop();
+    renderSidebar();
     showError(e.message + ' Tap Next to retry.');
   } finally {
     document.getElementById('loadingNextQ').classList.remove('active');
@@ -1251,13 +1286,13 @@ function finishEarly() {
 }
 
 function renderSidebar() {
-  const el = document.getElementById('answersList');
-  const seedPreview = S.topic.length > 120 ? S.topic.substring(0, 120) + '...' : S.topic;
-  let html = `<div class="answer-item"><div class="label">Seed</div><div class="text">${seedPreview}</div></div>`;
-  S.history.forEach((entry) => {
+  var el = document.getElementById('answersList');
+  var seedPreview = S.topic.length > 120 ? S.topic.substring(0, 120) + '...' : S.topic;
+  var html = '<div class="answer-item"><div class="label">Seed</div><div class="text">' + escapeHTML(seedPreview) + '</div></div>';
+  S.history.forEach(function(entry) {
     if (entry.answer && entry.answer !== '[skipped]') {
-      const preview = entry.answer.substring(0, 200) + (entry.answer.length > 200 ? '...' : '');
-      html += `<div class="answer-item"><div class="label">${entry.label}</div><div class="text">${preview}</div></div>`;
+      var preview = entry.answer.substring(0, 200) + (entry.answer.length > 200 ? '...' : '');
+      html += '<div class="answer-item"><div class="label">' + escapeHTML(entry.label) + '</div><div class="text">' + escapeHTML(preview) + '</div></div>';
     }
   });
   el.innerHTML = html;
