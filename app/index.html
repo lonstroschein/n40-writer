@@ -1178,15 +1178,16 @@ async function fetchNextQuestion() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topic: S.topic, history: S.history })
-  });
+  }, 120000);
   if (!res.ok) {
     var errText = await res.text();
     var errMsg = 'Server error (' + res.status + ')';
     try { errMsg = JSON.parse(errText).error || errMsg; } catch(e) {}
     throw new Error(errMsg);
   }
+  var raw = await res.text();
+  var text = raw.trim();
   var data;
-  var text = await res.text();
   try {
     data = JSON.parse(text);
   } catch (e) {

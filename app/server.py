@@ -4,8 +4,10 @@
 import os
 import re
 import json
+import time
+import threading
 import datetime
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 
 import anthropic
 
@@ -188,6 +190,28 @@ def handle_error(e):
     return jsonify({'error': f'Something went wrong — try again. ({type(e).__name__})'}), 503
 
 
+def stream_claude_call(fn):
+    """Run fn() in a thread, sending keepalive spaces every 2s.
+    fn must return a JSON-serializable dict. Prevents Render 30s idle timeout."""
+    result = {'data': None, 'error': None}
+    def wrapper():
+        try:
+            result['data'] = fn()
+        except Exception as e:
+            result['error'] = f'{type(e).__name__}: {str(e)}'
+    def generate():
+        t = threading.Thread(target=wrapper)
+        t.start()
+        while t.is_alive():
+            yield ' '
+            t.join(timeout=2)
+        if result['error']:
+            yield json.dumps({'error': result['error']})
+        else:
+            yield json.dumps(result['data'])
+    return Response(generate(), mimetype='application/json')
+
+
 # ─── ROUTES ─────────────────────────────────────────
 
 @app.route('/')
@@ -202,10 +226,10 @@ def serve_image(filename):
 
 @app.route('/api/next-question', methods=['POST'])
 def next_question():
-    """Generate the NEXT interview question dynamically based on everything so far."""
+    """Generate the NEXT interview question dynamically, streamed to keep connection alive."""
     data = request.json
     topic = data.get('topic', '')
-    history = data.get('history', [])  # list of {label, question, answer}
+    history = data.get('history', [])
     question_number = len(history) + 1
 
     if not topic:
@@ -213,17 +237,13 @@ def next_question():
 
     client = get_client()
 
-    # Build the conversation history for context
     history_text = ''
     for entry in history:
         history_text += f"\n### {entry.get('label', 'Q')}\n"
         history_text += f"Question: {entry.get('question', '')}\n"
         history_text += f"Lon's answer: {entry.get('answer', '[skipped]')}\n"
 
-    msg = client.messages.create(
-        model='claude-sonnet-4-20250514',
-        max_tokens=1500,
-        system=f"""You are the content interview engine for Lon Stroschein and The Normal 40.
+    system_prompt = f"""You are the content interview engine for Lon Stroschein and The Normal 40.
 
 {AVATAR_CONTEXT}
 
@@ -268,28 +288,29 @@ If asking a question, return ONLY this JSON:
 
 If ready, return ONLY: {{"ready": true}}
 
-NEVER ask more than 6 questions total. By question 5-6, if you don't have enough, work with what you have and signal ready.""",
-        messages=[{
-            'role': 'user',
-            'content': f'Lon\'s seed:\n\n{topic}\n\n--- CONVERSATION SO FAR ---\n{history_text if history_text else "(First question — no answers yet)"}'
-        }]
-    )
+NEVER ask more than 6 questions total. By question 5-6, if you don't have enough, work with what you have and signal ready."""
 
-    try:
-        text = msg.content[0].text.strip()
-        if text.startswith('```'):
-            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        result = json.loads(text)
-        return jsonify(result)
-    except (json.JSONDecodeError, IndexError):
-        raw = msg.content[0].text
-        match = re.search(r'\{[\s\S]*\}', raw)
-        if match:
-            try:
-                return jsonify(json.loads(match.group()))
-            except json.JSONDecodeError:
-                pass
-        return jsonify({'error': 'Claude returned an unexpected format. Try again.'}), 500
+    user_content = f'Lon\'s seed:\n\n{topic}\n\n--- CONVERSATION SO FAR ---\n{history_text if history_text else "(First question — no answers yet)"}'
+
+    def do_call():
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514',
+            max_tokens=1500,
+            system=system_prompt,
+            messages=[{'role': 'user', 'content': user_content}]
+        )
+        raw = msg.content[0].text.strip()
+        if raw.startswith('```'):
+            raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            match = re.search(r'\{[\s\S]*\}', raw)
+            if match:
+                return json.loads(match.group())
+            return {'error': 'Claude returned an unexpected format. Try again.'}
+
+    return stream_claude_call(do_call)
 
 
 @app.route('/api/generate-content', methods=['POST'])
@@ -312,10 +333,7 @@ def generate_content():
         if entry.get('answer') and entry.get('answer') != '[skipped]':
             answers_text += f"\n## {entry.get('label', 'Q')}\n{entry.get('answer', '')}\n"
 
-    msg = client.messages.create(
-        model='claude-sonnet-4-20250514',
-        max_tokens=6000,
-        system=f"""You are the content creation engine for Lon Stroschein and The Normal 40.
+    system_prompt = f"""You are the content creation engine for Lon Stroschein and The Normal 40.
 
 {AVATAR_CONTEXT}
 
@@ -394,21 +412,21 @@ Return ONLY valid JSON:
   }}
 }}
 
-No markdown fences. No explanation. Just the JSON.""",
-        messages=[{
-            'role': 'user',
-            'content': f'Topic: {topic}\nTemplate: {template}\nColor mode: {color_mode}\n\nLon\'s raw answers:\n{answers_text}'
-        }]
-    )
+No markdown fences. No explanation. Just the JSON."""
 
-    try:
+    user_msg = f'Topic: {topic}\nTemplate: {template}\nColor mode: {color_mode}\n\nLon\'s raw answers:\n{answers_text}'
+
+    def do_call():
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514', max_tokens=6000,
+            system=system_prompt, messages=[{'role': 'user', 'content': user_msg}]
+        )
         text = msg.content[0].text.strip()
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        content = json.loads(text)
-        return jsonify(content)
-    except (json.JSONDecodeError, IndexError) as e:
-        return jsonify({'error': f'Failed to parse content: {str(e)}', 'raw': msg.content[0].text}), 500
+        return json.loads(text)
+
+    return stream_claude_call(do_call)
 
 
 @app.route('/api/refine', methods=['POST'])
@@ -476,21 +494,17 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
         user_content += f'Current infographic data:\n{infographic_json}\n\n'
     user_content += f'Lon\'s feedback:\n{feedback}'
 
-    msg = client.messages.create(
-        model='claude-sonnet-4-20250514',
-        max_tokens=6000,
-        system=system_prompt,
-        messages=[{'role': 'user', 'content': user_content}]
-    )
-
-    try:
+    def do_call():
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514', max_tokens=6000,
+            system=system_prompt, messages=[{'role': 'user', 'content': user_content}]
+        )
         text = msg.content[0].text.strip()
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        result = json.loads(text)
-        return jsonify(result)
-    except (json.JSONDecodeError, IndexError) as e:
-        return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
+        return json.loads(text)
+
+    return stream_claude_call(do_call)
 
 
 @app.route('/api/recycle', methods=['POST'])
@@ -562,7 +576,8 @@ Rules for carousel:
 - Give away the FULL framework. Every slide should teach something usable TODAY.
 """
 
-    msg = client.messages.create(
+    def do_call():
+        msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=4000,
         system=f"""You are refreshing a post for Lon Stroschein and The Normal 40.
@@ -605,15 +620,12 @@ Return ONLY valid JSON:
 No markdown fences. No explanation. Just the JSON.""",
         messages=[{'role': 'user', 'content': f'Post to improve:\n\n{original}'}]
     )
-
-    try:
         text = msg.content[0].text.strip()
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        result = json.loads(text)
-        return jsonify(result)
-    except (json.JSONDecodeError, IndexError) as e:
-        return jsonify({'error': f'Failed to parse: {str(e)}', 'raw': msg.content[0].text}), 500
+        return json.loads(text)
+
+    return stream_claude_call(do_call)
 
 
 @app.route('/api/recycle-refine', methods=['POST'])
@@ -639,37 +651,35 @@ Keep lines short (under 8 words each), 3-5 lines max."""
 Current data: """ + json.dumps(visual_data) + """
 Return {"visual": {"slides": [...]}} maintaining the same structure."""
 
-        msg = client.messages.create(
-            model='claude-sonnet-4-20250514',
-            max_tokens=4000,
-            system=f"""{VOICE_CONTEXT}
+        sys_prompt = f"""{VOICE_CONTEXT}
 {ALGORITHM_CONTEXT}
 
 Refine the visual content based on feedback. {visual_desc}
 NEVER include URLs, links, or website references.
-Return ONLY valid JSON.""",
-            messages=[{'role': 'user', 'content': f'Feedback: {feedback}'}]
-        )
+Return ONLY valid JSON."""
+        usr_msg = f'Feedback: {feedback}'
+        max_tok = 4000
     else:
-        msg = client.messages.create(
-            model='claude-sonnet-4-20250514',
-            max_tokens=2000,
-            system=f"""{VOICE_CONTEXT}
+        sys_prompt = f"""{VOICE_CONTEXT}
 {ALGORITHM_CONTEXT}
 
 Refine the post text based on feedback. Maintain voice and algorithm optimization.
 NEVER include URLs, links, or website references. Give everything away freely.
-Return ONLY valid JSON: {{"postText": "refined text"}}""",
-            messages=[{'role': 'user', 'content': f'Current post:\n{post_text}\n\nFeedback: {feedback}'}]
-        )
+Return ONLY valid JSON: {{"postText": "refined text"}}"""
+        usr_msg = f'Current post:\n{post_text}\n\nFeedback: {feedback}'
+        max_tok = 2000
 
-    try:
+    def do_call():
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514', max_tokens=max_tok,
+            system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
+        )
         text = msg.content[0].text.strip()
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        return jsonify(json.loads(text))
-    except (json.JSONDecodeError, IndexError) as e:
-        return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
+        return json.loads(text)
+
+    return stream_claude_call(do_call)
 
 
 @app.route('/api/generate-note', methods=['POST'])
@@ -777,10 +787,7 @@ RULES:
 
     client = get_client()
 
-    msg = client.messages.create(
-        model='claude-sonnet-4-20250514',
-        max_tokens=2000,
-        system=f"""You are shaping Lon Stroschein's raw thought into a LinkedIn Note.
+    sys_prompt = f"""You are shaping Lon Stroschein's raw thought into a LinkedIn Note.
 
 {AVATAR_CONTEXT}
 
@@ -804,12 +811,18 @@ Result: A truth bomb. Direct conversation with one reader. Not a story. Not a se
 
 NEVER USE: leverage, optimize, synergy, actionable, transformative, unlock your potential, thrive, abundance, empowered, curated, hacks
 
-Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, ready to post.""",
-        messages=[{'role': 'user', 'content': f'Lon\'s raw thought (keep his words, shape don\'t rewrite):\n\n{thought}'}]
-    )
+Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, ready to post."""
 
-    note = msg.content[0].text.strip()
-    return jsonify({'note': note})
+    usr_msg = f'Lon\'s raw thought (keep his words, shape don\'t rewrite):\n\n{thought}'
+
+    def do_call():
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514', max_tokens=2000,
+            system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
+        )
+        return {'note': msg.content[0].text.strip()}
+
+    return stream_claude_call(do_call)
 
 
 @app.route('/api/refine-note', methods=['POST'])
@@ -831,10 +844,7 @@ def refine_note():
 
     client = get_client()
 
-    msg = client.messages.create(
-        model='claude-sonnet-4-20250514',
-        max_tokens=2000,
-        system=f"""You are refining a LinkedIn Note.
+    sys_prompt = f"""You are refining a LinkedIn Note.
 
 Mode: {length_desc}
 Edge: {edge}.
@@ -843,15 +853,18 @@ Apply the feedback precisely. Stay in the mode — if it's sniper/punch, keep it
 
 NO hashtags. NO links. NO emojis.
 
-Return ONLY the refined note text. No JSON. No quotes. No explanation.""",
-        messages=[{
-            'role': 'user',
-            'content': f'Original thought: {thought}\n\nCurrent note:\n{current}\n\nFeedback: {feedback}'
-        }]
-    )
+Return ONLY the refined note text. No JSON. No quotes. No explanation."""
 
-    note = msg.content[0].text.strip()
-    return jsonify({'note': note})
+    usr_msg = f'Original thought: {thought}\n\nCurrent note:\n{current}\n\nFeedback: {feedback}'
+
+    def do_call():
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514', max_tokens=2000,
+            system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
+        )
+        return {'note': msg.content[0].text.strip()}
+
+    return stream_claude_call(do_call)
 
 
 TRADE_CHAPTERS = {
@@ -925,7 +938,8 @@ def generate_trade():
 
     angle_line = f"\n\nLon's specific angle for this post:\n{angle}" if angle else ""
 
-    msg = client.messages.create(
+    def do_call():
+        msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=6000,
         system=f"""You are writing content from Lon Stroschein's book "The Trade" — an Amazon #1 Bestseller about elite performers who are winning on paper but dying inside, and the courage it takes to trade what you have for who you're capable of becoming.
@@ -985,15 +999,12 @@ No markdown fences. No explanation. Just the JSON.""",
             'content': f'Chapter {chapter_num}: {chapter["title"]}\nLens: {lens}{angle_line}'
         }]
     )
-
-    try:
         text = msg.content[0].text.strip()
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        result = json.loads(text)
-        return jsonify(result)
-    except (json.JSONDecodeError, IndexError) as e:
-        return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
+        return json.loads(text)
+
+    return stream_claude_call(do_call)
 
 
 @app.route('/api/vault', methods=['GET'])
@@ -1037,7 +1048,8 @@ def vault_recycle():
 
     client = get_client()
 
-    msg = client.messages.create(
+    def do_call():
+        msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=6000,
         system=f"""You are refreshing a LinkedIn post for Lon Stroschein.
@@ -1099,15 +1111,12 @@ Return ONLY valid JSON:
 No markdown fences. No explanation. Just the JSON.""",
         messages=[{'role': 'user', 'content': f'Original post ({original_date}):\n\n{original}'}]
     )
-
-    try:
         text = msg.content[0].text.strip()
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        result = json.loads(text)
-        return jsonify(result)
-    except (json.JSONDecodeError, IndexError) as e:
-        return jsonify({'error': str(e), 'raw': msg.content[0].text}), 500
+        return json.loads(text)
+
+    return stream_claude_call(do_call)
 
 
 @app.route('/api/stats', methods=['GET', 'POST'])
