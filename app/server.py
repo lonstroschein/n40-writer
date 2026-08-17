@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""N40 LinkedIn Content Engine — Cloud-ready Flask backend with Claude API."""
+"""N40 LinkedIn Content Engine — Multi-tenant Flask backend with Claude API."""
 
 import os
 import re
@@ -7,11 +7,60 @@ import json
 import time
 import threading
 import datetime
+from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, Response
 
 import anthropic
+from . import db
 
 app = Flask(__name__, static_folder=None)
+
+
+# ─── AUTH HELPERS ──────────────────────────────────────
+
+def get_current_user():
+    """Get the logged-in user from the Authorization header or cookie."""
+    token = None
+    auth = request.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        token = auth[7:]
+    if not token:
+        token = request.cookies.get('engine_token')
+    if not token:
+        return None
+    return db.get_user_by_token(token)
+
+
+def require_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'Login required'}), 401
+        request.user = user
+        return f(*args, **kwargs)
+    return decorated
+
+
+def require_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user = get_current_user()
+        if not user or user['role'] != 'admin':
+            return jsonify({'error': 'Admin access required'}), 403
+        request.user = user
+        return f(*args, **kwargs)
+    return decorated
+
+
+def get_user_contexts(user):
+    """Get voice/avatar/calibration/algorithm context for a user.
+    Falls back to the hardcoded Lon defaults if the user has no profile yet."""
+    avatar = user.get('avatar_context') or AVATAR_CONTEXT
+    voice = user.get('voice_context') or VOICE_CONTEXT
+    cal = user.get('calibration') or LON_CALIBRATION
+    algo = user.get('algorithm_context') or ALGORITHM_CONTEXT
+    return avatar, voice, cal, algo
 
 # ─── AVATAR CONTEXT (baked in) ──────────────────────────────────
 AVATAR_CONTEXT = """
@@ -212,7 +261,277 @@ def stream_claude_call(fn):
     return Response(generate(), mimetype='application/json')
 
 
-# ─── ROUTES ─────────────────────────────────────────
+# ─── SEED LON AS ADMIN ON FIRST RUN ───────────────────
+def seed_admin():
+    """Create Lon's admin account if it doesn't exist."""
+    with db.get_db() as conn:
+        existing = conn.execute("SELECT id FROM users WHERE email = 'lon@normal40.com'").fetchone()
+        if not existing:
+            conn.execute(
+                'INSERT INTO users (email, name, role, password_hash, onboarded) VALUES (?, ?, ?, ?, 1)',
+                ('lon@normal40.com', 'Lon Stroschein', 'admin', db.hash_password(os.environ.get('ADMIN_PASSWORD', 'n40admin')))
+            )
+            user_id = conn.execute("SELECT id FROM users WHERE email = 'lon@normal40.com'").fetchone()['id']
+            conn.execute(
+                'INSERT INTO profiles (user_id, avatar_context, voice_context, calibration, algorithm_context) VALUES (?, ?, ?, ?, ?)',
+                (user_id, AVATAR_CONTEXT, VOICE_CONTEXT, LON_CALIBRATION, ALGORITHM_CONTEXT)
+            )
+
+seed_admin()
+
+
+# ─── AUTH ROUTES ──────────────────────────────────────
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    data = request.json
+    email = data.get('email', '')
+    password = data.get('password', '')
+    token = db.login(email, password)
+    if not token:
+        return jsonify({'error': 'Invalid email or password'}), 401
+    user = db.get_user_by_token(token)
+    resp = jsonify({'token': token, 'name': user['name'], 'role': user['role'], 'onboarded': bool(user['onboarded'])})
+    resp.set_cookie('engine_token', token, httponly=True, samesite='Lax', max_age=60*60*24*30)
+    return resp
+
+
+@app.route('/api/auth/register', methods=['POST'])
+def auth_register():
+    data = request.json
+    code = data.get('code', '')
+    password = data.get('password', '')
+    if not code or not password:
+        return jsonify({'error': 'Invite code and password required'}), 400
+    token = db.accept_invite(code, password)
+    if not token:
+        return jsonify({'error': 'Invalid or expired invite code'}), 400
+    user = db.get_user_by_token(token)
+    resp = jsonify({'token': token, 'name': user['name'], 'role': user['role'], 'onboarded': bool(user['onboarded'])})
+    resp.set_cookie('engine_token', token, httponly=True, samesite='Lax', max_age=60*60*24*30)
+    return resp
+
+
+@app.route('/api/auth/me', methods=['GET'])
+def auth_me():
+    user = get_current_user()
+    if not user:
+        return jsonify({'logged_in': False}), 200
+    return jsonify({
+        'logged_in': True,
+        'name': user['name'],
+        'email': user['email'],
+        'role': user['role'],
+        'onboarded': bool(user['onboarded'])
+    })
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def auth_logout():
+    token = request.cookies.get('engine_token') or ''
+    auth = request.headers.get('Authorization', '')
+    if auth.startswith('Bearer '):
+        token = auth[7:]
+    if token:
+        db.logout(token)
+    resp = jsonify({'ok': True})
+    resp.delete_cookie('engine_token')
+    return resp
+
+
+# ─── ADMIN ROUTES ─────────────────────────────────────
+
+@app.route('/api/admin/invite', methods=['POST'])
+@require_admin
+def admin_invite():
+    data = request.json
+    email = data.get('email', '')
+    name = data.get('name', '')
+    if not email or not name:
+        return jsonify({'error': 'Email and name required'}), 400
+    try:
+        code = db.create_invite(email, name)
+    except Exception:
+        return jsonify({'error': 'Email already exists'}), 409
+    return jsonify({'code': code, 'link': f'/register?code={code}'})
+
+
+@app.route('/api/admin/clients', methods=['GET'])
+@require_admin
+def admin_clients():
+    return jsonify(db.list_clients())
+
+
+@app.route('/api/admin/profile/<int:user_id>', methods=['GET', 'PUT'])
+@require_admin
+def admin_profile(user_id):
+    if request.method == 'GET':
+        profile = db.get_profile(user_id)
+        if not profile:
+            return jsonify({'error': 'No profile found'}), 404
+        return jsonify(dict(profile))
+    data = request.json
+    db.save_profile(
+        user_id,
+        avatar_context=data.get('avatar_context', ''),
+        voice_context=data.get('voice_context', ''),
+        calibration=data.get('calibration', ''),
+        algorithm_context=data.get('algorithm_context', '')
+    )
+    return jsonify({'ok': True})
+
+
+# ─── ONBOARDING (voice interview for new clients) ────
+
+@app.route('/api/onboard/question', methods=['POST'])
+@require_auth
+def onboard_question():
+    """Dynamic voice interview — builds a client's writing profile."""
+    data = request.json
+    history = data.get('history', [])
+    question_number = len(history) + 1
+
+    client = get_client()
+
+    history_text = ''
+    for entry in history:
+        history_text += f"\n### {entry.get('label', 'Q')}\n"
+        history_text += f"Q: {entry.get('question', '')}\n"
+        history_text += f"A: {entry.get('answer', '[skipped]')}\n"
+
+    system_prompt = f"""You are building a writer's voice profile through a conversational interview.
+
+Your job: Ask questions that reveal HOW this person writes, thinks, and speaks — so an AI can write in their voice later.
+
+You need to uncover:
+1. WHO THEY WRITE FOR — their audience, their reader's pain, their reader's secret desire
+2. HOW THEY SOUND — casual vs formal, stories vs frameworks, warm vs blunt, long vs short
+3. THEIR SIGNATURE MOVES — phrases they use, how they open, how they close, their rhythm
+4. WHAT THEY NEVER SAY — banned words, tones they hate, styles they despise
+5. THEIR BEST WORK — ask them to share or describe 2-3 pieces they're proudest of
+6. THEIR HOOK STYLE — how they grab attention in the first line
+7. THEIR CLOSE — how they end a piece (question, invitation, challenge, statement)
+
+This is question #{question_number}. Adapt based on what they've told you so far.
+
+If asking, return JSON: {{"ready": false, "label": "short label", "question": "the question", "hint": "coaching hint"}}
+If you have enough (after 8-10 questions), return: {{"ready": true}}
+
+Max 10 questions."""
+
+    def do_call():
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514', max_tokens=1500,
+            system=system_prompt,
+            messages=[{'role': 'user', 'content': f'Interview so far:\n{history_text if history_text else "(First question)"}'}]
+        )
+        raw = msg.content[0].text.strip()
+        if raw.startswith('```'):
+            raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            match = re.search(r'\{[\s\S]*\}', raw)
+            if match:
+                return json.loads(match.group())
+            return {'error': 'Unexpected format. Try again.'}
+
+    return stream_claude_call(do_call)
+
+
+@app.route('/api/onboard/complete', methods=['POST'])
+@require_auth
+def onboard_complete():
+    """Take the voice interview answers and generate a full writing profile."""
+    data = request.json
+    history = data.get('history', [])
+    user = request.user
+
+    client = get_client()
+
+    interview_text = ''
+    for entry in history:
+        interview_text += f"\n### {entry.get('label', 'Q')}\n"
+        interview_text += f"Q: {entry.get('question', '')}\n"
+        interview_text += f"A: {entry.get('answer', '')}\n"
+
+    def do_call():
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514', max_tokens=6000,
+            system="""You are building a complete writer's voice profile from an interview.
+
+Generate FOUR sections, each clearly labeled and detailed:
+
+1. AVATAR_CONTEXT — Who they write for. Pain points, desires, the moment they reach out, defining paradox. Model it on this structure:
+   "## [Name]'s Avatar\n[description]\n\nPAIN POINTS:\n- ...\n\nWHAT THEY WANT:\n- ...\n\nDEFINING PARADOX: ..."
+
+2. VOICE_CONTEXT — How they write. Core identity, writing patterns, hook patterns, correction list, words to never use, signature language. Be extremely specific — pull exact phrases from their answers.
+
+3. CALIBRATION — 2-3 examples of their BEST writing (from what they shared or described), plus 8-10 voice rules derived from their actual style. If they didn't share examples, synthesize what their best writing WOULD sound like based on everything they said.
+
+4. ALGORITHM_CONTEXT — Platform rules for LinkedIn (keep the standard rules but customize for their audience).
+
+Return ONLY valid JSON:
+{
+  "avatar_context": "full avatar context text",
+  "voice_context": "full voice context text",
+  "calibration": "full calibration text",
+  "algorithm_context": "full algorithm context text",
+  "summary": "2-3 sentence summary of their voice for display"
+}""",
+            messages=[{'role': 'user', 'content': f'Writer: {user["name"]}\n\nFull voice interview:\n{interview_text}'}]
+        )
+        raw = msg.content[0].text.strip()
+        if raw.startswith('```'):
+            raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+        profile = json.loads(raw)
+
+        db.save_profile(
+            user['id'],
+            avatar_context=profile.get('avatar_context', ''),
+            voice_context=profile.get('voice_context', ''),
+            calibration=profile.get('calibration', ''),
+            algorithm_context=profile.get('algorithm_context', '')
+        )
+        db.mark_onboarded(user['id'])
+
+        return {'ok': True, 'summary': profile.get('summary', 'Profile created.')}
+
+    return stream_claude_call(do_call)
+
+
+# ─── PROFILE ROUTES ──────────────────────────────────
+
+@app.route('/api/profile', methods=['GET'])
+@require_auth
+def get_my_profile():
+    profile = db.get_profile(request.user['id'])
+    if not profile:
+        return jsonify({'error': 'No profile yet — complete onboarding first'}), 404
+    return jsonify({
+        'avatar_context': profile['avatar_context'],
+        'voice_context': profile['voice_context'],
+        'calibration': profile['calibration'],
+        'algorithm_context': profile['algorithm_context']
+    })
+
+
+@app.route('/api/profile', methods=['PUT'])
+@require_auth
+def update_my_profile():
+    data = request.json
+    user = request.user
+    db.save_profile(
+        user['id'],
+        avatar_context=data.get('avatar_context', user.get('avatar_context', '')),
+        voice_context=data.get('voice_context', user.get('voice_context', '')),
+        calibration=data.get('calibration', user.get('calibration', '')),
+        algorithm_context=data.get('algorithm_context', user.get('algorithm_context', ''))
+    )
+    return jsonify({'ok': True})
+
+
+# ─── CONTENT ROUTES ──────────────────────────────────
 
 @app.route('/')
 def index():
@@ -225,6 +544,7 @@ def serve_image(filename):
 
 
 @app.route('/api/next-question', methods=['POST'])
+@require_auth
 def next_question():
     """Generate the NEXT interview question dynamically, streamed to keep connection alive."""
     data = request.json
@@ -235,21 +555,23 @@ def next_question():
     if not topic:
         return jsonify({'error': 'No topic provided'}), 400
 
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
     client = get_client()
 
     history_text = ''
     for entry in history:
         history_text += f"\n### {entry.get('label', 'Q')}\n"
         history_text += f"Question: {entry.get('question', '')}\n"
-        history_text += f"Lon's answer: {entry.get('answer', '[skipped]')}\n"
+        history_text += f"Answer: {entry.get('answer', '[skipped]')}\n"
 
-    system_prompt = f"""You are the content interview engine for Lon Stroschein and The Normal 40.
+    system_prompt = f"""You are the content interview engine for {user['name']}.
 
-{AVATAR_CONTEXT}
+{avatar}
 
-{VOICE_CONTEXT}
+{voice}
 
-{ALGORITHM_CONTEXT}
+{algo}
 
 YOU ARE BUILDING A POST DYNAMICALLY — one question at a time. This is question #{question_number}.
 
@@ -314,6 +636,7 @@ NEVER ask more than 6 questions total. By question 5-6, if you don't have enough
 
 
 @app.route('/api/generate-content', methods=['POST'])
+@require_auth
 def generate_content():
     """Given topic + full interview history, generate LinkedIn post + Substack post + infographic."""
     data = request.json
@@ -325,6 +648,8 @@ def generate_content():
     if not topic:
         return jsonify({'error': 'No topic provided'}), 400
 
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
     client = get_client()
 
     # Build conversation history
@@ -335,11 +660,11 @@ def generate_content():
 
     system_prompt = f"""You are the content creation engine for Lon Stroschein and The Normal 40.
 
-{AVATAR_CONTEXT}
+{avatar}
 
-{LON_CALIBRATION}
+{cal}
 
-{ALGORITHM_CONTEXT}
+{algo}
 
 Your job: Take Lon's raw interview answers and write them into THREE things — in HIS voice. Read the calibration examples above. If your output doesn't sound like those, start over.
 
@@ -430,6 +755,7 @@ No markdown fences. No explanation. Just the JSON."""
 
 
 @app.route('/api/refine', methods=['POST'])
+@require_auth
 def refine():
     """Iterate on existing content with feedback. Supports post, substack, infographic, or all."""
     data = request.json
@@ -442,6 +768,8 @@ def refine():
     infographic_data = data.get('infographicData', {})
 
     client = get_client()
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
 
     infographic_json = json.dumps(infographic_data, indent=2) if infographic_data else '{}'
 
@@ -458,8 +786,8 @@ def refine():
 
     system_prompt = f"""You are the content refinement engine for Lon Stroschein / The Normal 40.
 
-{VOICE_CONTEXT}
-{ALGORITHM_CONTEXT}
+{voice}
+{algo}
 
 Lon has given you feedback on his current content. Apply his feedback precisely while maintaining:
 - His voice (researcher, truth-teller)
@@ -508,6 +836,7 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
 
 
 @app.route('/api/recycle', methods=['POST'])
+@require_auth
 def recycle():
     """Recycle an old post into fresh algorithm-optimized content + visual."""
     data = request.json
@@ -525,6 +854,8 @@ def recycle():
         'long': '1,800-2,200 characters'
     }.get(length, '1,100-1,500 characters')
 
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
     client = get_client()
 
     if fmt == 'image':
@@ -582,11 +913,11 @@ Rules for carousel:
         max_tokens=4000,
         system=f"""You are refreshing a post for Lon Stroschein and The Normal 40.
 
-{AVATAR_CONTEXT}
+{avatar}
 
-{LON_CALIBRATION}
+{cal}
 
-{ALGORITHM_CONTEXT}
+{algo}
 
 Your job: REFRESH this post for today's algorithm — do NOT rewrite it. Lon wrote it. His voice IS the post. Keep his stories, his names, his warmth, his casual tone, his invitational endings.
 
@@ -629,6 +960,7 @@ No markdown fences. No explanation. Just the JSON.""",
 
 
 @app.route('/api/recycle-refine', methods=['POST'])
+@require_auth
 def recycle_refine():
     """Refine recycled content with feedback."""
     data = request.json
@@ -639,6 +971,8 @@ def recycle_refine():
     feedback = data.get('feedback', '')
 
     client = get_client()
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
 
     if target == 'visual':
         if fmt == 'image':
@@ -651,8 +985,8 @@ Keep lines short (under 8 words each), 3-5 lines max."""
 Current data: """ + json.dumps(visual_data) + """
 Return {"visual": {"slides": [...]}} maintaining the same structure."""
 
-        sys_prompt = f"""{VOICE_CONTEXT}
-{ALGORITHM_CONTEXT}
+        sys_prompt = f"""{voice}
+{algo}
 
 Refine the visual content based on feedback. {visual_desc}
 NEVER include URLs, links, or website references.
@@ -660,8 +994,8 @@ Return ONLY valid JSON."""
         usr_msg = f'Feedback: {feedback}'
         max_tok = 4000
     else:
-        sys_prompt = f"""{VOICE_CONTEXT}
-{ALGORITHM_CONTEXT}
+        sys_prompt = f"""{voice}
+{algo}
 
 Refine the post text based on feedback. Maintain voice and algorithm optimization.
 NEVER include URLs, links, or website references. Give everything away freely.
@@ -683,6 +1017,7 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
 
 
 @app.route('/api/generate-note', methods=['POST'])
+@require_auth
 def generate_note():
     """Take a short thought and write it as a LinkedIn Note — 4 length modes."""
     data = request.json
@@ -785,11 +1120,13 @@ RULES:
 - NO hashtags at end. NO links. NO emojis."""
     }.get(length, '')
 
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
     client = get_client()
 
-    sys_prompt = f"""You are shaping Lon Stroschein's raw thought into a LinkedIn Note.
+    sys_prompt = f"""You are shaping {user['name']}'s raw thought into a LinkedIn Note.
 
-{AVATAR_CONTEXT}
+{avatar}
 
 {edge_instructions}
 
@@ -826,6 +1163,7 @@ Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, re
 
 
 @app.route('/api/refine-note', methods=['POST'])
+@require_auth
 def refine_note():
     """Refine a LinkedIn Note with feedback."""
     data = request.json
@@ -842,6 +1180,8 @@ def refine_note():
         'letter': 'LETTER: 10-20 lines, 600-1200 chars. Lon\'s personal voice — story, confession, memory. Real details, real warmth.'
     }.get(length, '')
 
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
     client = get_client()
 
     sys_prompt = f"""You are refining a LinkedIn Note.
@@ -917,6 +1257,7 @@ Key themes: "Your final line is still unwritten." / "Will your final line be: 'I
 
 
 @app.route('/api/generate-trade', methods=['POST'])
+@require_auth
 def generate_trade():
     """Generate content from a chapter of The Trade book."""
     data = request.json
@@ -934,9 +1275,11 @@ def generate_trade():
         'challenge': 'CHALLENGE the reader directly from this chapter. Not a sermon — a dare. The kind of thing Lon says across a table: "Look. Here\'s what I know. Here\'s what you\'re avoiding. Here\'s what it\'s costing you."'
     }.get(lens, '')
 
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
     client = get_client()
 
-    angle_line = f"\n\nLon's specific angle for this post:\n{angle}" if angle else ""
+    angle_line = f"\n\n{user['name']}'s specific angle for this post:\n{angle}" if angle else ""
 
     def do_call():
         msg = client.messages.create(
@@ -944,11 +1287,11 @@ def generate_trade():
         max_tokens=6000,
         system=f"""You are writing content from Lon Stroschein's book "The Trade" — an Amazon #1 Bestseller about elite performers who are winning on paper but dying inside, and the courage it takes to trade what you have for who you're capable of becoming.
 
-{AVATAR_CONTEXT}
+{avatar}
 
-{LON_CALIBRATION}
+{cal}
 
-{ALGORITHM_CONTEXT}
+{algo}
 
 ## THE CHAPTER
 
@@ -1037,6 +1380,7 @@ def vault():
 
 
 @app.route('/api/vault-recycle', methods=['POST'])
+@require_auth
 def vault_recycle():
     """Recycle a vault post into fresh LinkedIn + Substack content."""
     data = request.json
@@ -1047,6 +1391,8 @@ def vault_recycle():
         return jsonify({'error': 'No post provided'}), 400
 
     client = get_client()
+    user = request.user
+    avatar, voice, cal, algo = get_user_contexts(user)
 
     def do_call():
         msg = client.messages.create(
@@ -1054,11 +1400,11 @@ def vault_recycle():
         max_tokens=6000,
         system=f"""You are refreshing a LinkedIn post for Lon Stroschein.
 
-{AVATAR_CONTEXT}
+{avatar}
 
-{LON_CALIBRATION}
+{cal}
 
-{ALGORITHM_CONTEXT}
+{algo}
 
 ## YOUR JOB
 
