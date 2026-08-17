@@ -7,5 +7,3 @@ services:
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: ADMIN_PASSWORD
-        sync: false

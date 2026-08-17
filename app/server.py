@@ -1,68 +1,21 @@
 #!/usr/bin/env python3
-"""N40 LinkedIn Content Engine — Multi-tenant Flask backend with Claude API."""
+"""N40 Content Engine — Simple Flask backend with Claude API.
+No database, no auth. Voice profiles come from the client (localStorage)."""
 
 import os
 import re
 import json
 import time
 import threading
-import datetime
-from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, Response
 
 import anthropic
-from . import db
 
 app = Flask(__name__, static_folder=None)
 
 
-# ─── AUTH HELPERS ──────────────────────────────────────
+# ─── VOICE CONTEXTS (Lon's defaults — used when no profile is provided) ───
 
-def get_current_user():
-    """Get the logged-in user from the Authorization header or cookie."""
-    token = None
-    auth = request.headers.get('Authorization', '')
-    if auth.startswith('Bearer '):
-        token = auth[7:]
-    if not token:
-        token = request.cookies.get('engine_token')
-    if not token:
-        return None
-    return db.get_user_by_token(token)
-
-
-def require_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'Login required'}), 401
-        request.user = user
-        return f(*args, **kwargs)
-    return decorated
-
-
-def require_admin(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        user = get_current_user()
-        if not user or user['role'] != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        request.user = user
-        return f(*args, **kwargs)
-    return decorated
-
-
-def get_user_contexts(user):
-    """Get voice/avatar/calibration/algorithm context for a user.
-    Falls back to the hardcoded Lon defaults if the user has no profile yet."""
-    avatar = user.get('avatar_context') or AVATAR_CONTEXT
-    voice = user.get('voice_context') or VOICE_CONTEXT
-    cal = user.get('calibration') or LON_CALIBRATION
-    algo = user.get('algorithm_context') or ALGORITHM_CONTEXT
-    return avatar, voice, cal, algo
-
-# ─── AVATAR CONTEXT (baked in) ──────────────────────────────────
 AVATAR_CONTEXT = """
 ## The Normal 40 Avatar
 Elite performer — physician, executive, founder, attorney — 15-25 years in. Winning on paper. Dying inside.
@@ -226,6 +179,19 @@ ALGORITHM_CONTEXT = """
 """
 
 
+def get_contexts(data=None):
+    """Extract voice contexts from request body, falling back to Lon's defaults."""
+    if data is None:
+        data = request.json or {}
+    profile = data.get('profile', {})
+    avatar = profile.get('avatar_context') or AVATAR_CONTEXT
+    voice = profile.get('voice_context') or VOICE_CONTEXT
+    cal = profile.get('calibration') or LON_CALIBRATION
+    algo = profile.get('algorithm_context') or ALGORITHM_CONTEXT
+    name = profile.get('name') or 'Writer'
+    return avatar, voice, cal, algo, name
+
+
 def get_client():
     """Get Anthropic client from environment variable."""
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
@@ -261,130 +227,9 @@ def stream_claude_call(fn):
     return Response(generate(), mimetype='application/json')
 
 
-# ─── SEED LON AS ADMIN ON FIRST RUN ───────────────────
-def seed_admin():
-    """Create Lon's admin account if it doesn't exist."""
-    with db.get_db() as conn:
-        existing = conn.execute("SELECT id FROM users WHERE email = 'lon@normal40.com'").fetchone()
-        if not existing:
-            conn.execute(
-                'INSERT INTO users (email, name, role, password_hash, onboarded) VALUES (?, ?, ?, ?, 1)',
-                ('lon@normal40.com', 'Lon Stroschein', 'admin', db.hash_password(os.environ.get('ADMIN_PASSWORD', 'n40admin')))
-            )
-            user_id = conn.execute("SELECT id FROM users WHERE email = 'lon@normal40.com'").fetchone()['id']
-            conn.execute(
-                'INSERT INTO profiles (user_id, avatar_context, voice_context, calibration, algorithm_context) VALUES (?, ?, ?, ?, ?)',
-                (user_id, AVATAR_CONTEXT, VOICE_CONTEXT, LON_CALIBRATION, ALGORITHM_CONTEXT)
-            )
-
-seed_admin()
-
-
-# ─── AUTH ROUTES ──────────────────────────────────────
-
-@app.route('/api/auth/login', methods=['POST'])
-def auth_login():
-    data = request.json
-    email = data.get('email', '')
-    password = data.get('password', '')
-    token = db.login(email, password)
-    if not token:
-        return jsonify({'error': 'Invalid email or password'}), 401
-    user = db.get_user_by_token(token)
-    resp = jsonify({'token': token, 'name': user['name'], 'role': user['role'], 'onboarded': bool(user['onboarded'])})
-    resp.set_cookie('engine_token', token, httponly=True, samesite='Lax', max_age=60*60*24*30)
-    return resp
-
-
-@app.route('/api/auth/register', methods=['POST'])
-def auth_register():
-    data = request.json
-    code = data.get('code', '')
-    password = data.get('password', '')
-    if not code or not password:
-        return jsonify({'error': 'Invite code and password required'}), 400
-    token = db.accept_invite(code, password)
-    if not token:
-        return jsonify({'error': 'Invalid or expired invite code'}), 400
-    user = db.get_user_by_token(token)
-    resp = jsonify({'token': token, 'name': user['name'], 'role': user['role'], 'onboarded': bool(user['onboarded'])})
-    resp.set_cookie('engine_token', token, httponly=True, samesite='Lax', max_age=60*60*24*30)
-    return resp
-
-
-@app.route('/api/auth/me', methods=['GET'])
-def auth_me():
-    user = get_current_user()
-    if not user:
-        return jsonify({'logged_in': False}), 200
-    return jsonify({
-        'logged_in': True,
-        'name': user['name'],
-        'email': user['email'],
-        'role': user['role'],
-        'onboarded': bool(user['onboarded'])
-    })
-
-
-@app.route('/api/auth/logout', methods=['POST'])
-def auth_logout():
-    token = request.cookies.get('engine_token') or ''
-    auth = request.headers.get('Authorization', '')
-    if auth.startswith('Bearer '):
-        token = auth[7:]
-    if token:
-        db.logout(token)
-    resp = jsonify({'ok': True})
-    resp.delete_cookie('engine_token')
-    return resp
-
-
-# ─── ADMIN ROUTES ─────────────────────────────────────
-
-@app.route('/api/admin/invite', methods=['POST'])
-@require_admin
-def admin_invite():
-    data = request.json
-    email = data.get('email', '')
-    name = data.get('name', '')
-    if not email or not name:
-        return jsonify({'error': 'Email and name required'}), 400
-    try:
-        code = db.create_invite(email, name)
-    except Exception:
-        return jsonify({'error': 'Email already exists'}), 409
-    return jsonify({'code': code, 'link': f'/register?code={code}'})
-
-
-@app.route('/api/admin/clients', methods=['GET'])
-@require_admin
-def admin_clients():
-    return jsonify(db.list_clients())
-
-
-@app.route('/api/admin/profile/<int:user_id>', methods=['GET', 'PUT'])
-@require_admin
-def admin_profile(user_id):
-    if request.method == 'GET':
-        profile = db.get_profile(user_id)
-        if not profile:
-            return jsonify({'error': 'No profile found'}), 404
-        return jsonify(dict(profile))
-    data = request.json
-    db.save_profile(
-        user_id,
-        avatar_context=data.get('avatar_context', ''),
-        voice_context=data.get('voice_context', ''),
-        calibration=data.get('calibration', ''),
-        algorithm_context=data.get('algorithm_context', '')
-    )
-    return jsonify({'ok': True})
-
-
-# ─── ONBOARDING (voice interview for new clients) ────
+# ─── ONBOARDING (voice interview for clients) ────────
 
 @app.route('/api/onboard/question', methods=['POST'])
-@require_auth
 def onboard_question():
     """Dynamic voice interview — builds a client's writing profile."""
     data = request.json
@@ -440,12 +285,12 @@ Max 10 questions."""
 
 
 @app.route('/api/onboard/complete', methods=['POST'])
-@require_auth
 def onboard_complete():
-    """Take the voice interview answers and generate a full writing profile."""
+    """Take the voice interview answers and generate a full writing profile.
+    Returns the profile to the client (stored in localStorage, not a database)."""
     data = request.json
     history = data.get('history', [])
-    user = request.user
+    writer_name = data.get('name', 'Writer')
 
     client = get_client()
 
@@ -479,56 +324,25 @@ Return ONLY valid JSON:
   "algorithm_context": "full algorithm context text",
   "summary": "2-3 sentence summary of their voice for display"
 }""",
-            messages=[{'role': 'user', 'content': f'Writer: {user["name"]}\n\nFull voice interview:\n{interview_text}'}]
+            messages=[{'role': 'user', 'content': f'Writer: {writer_name}\n\nFull voice interview:\n{interview_text}'}]
         )
         raw = msg.content[0].text.strip()
         if raw.startswith('```'):
             raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         profile = json.loads(raw)
 
-        db.save_profile(
-            user['id'],
-            avatar_context=profile.get('avatar_context', ''),
-            voice_context=profile.get('voice_context', ''),
-            calibration=profile.get('calibration', ''),
-            algorithm_context=profile.get('algorithm_context', '')
-        )
-        db.mark_onboarded(user['id'])
-
-        return {'ok': True, 'summary': profile.get('summary', 'Profile created.')}
+        return {
+            'ok': True,
+            'profile': {
+                'avatar_context': profile.get('avatar_context', ''),
+                'voice_context': profile.get('voice_context', ''),
+                'calibration': profile.get('calibration', ''),
+                'algorithm_context': profile.get('algorithm_context', ''),
+            },
+            'summary': profile.get('summary', 'Profile created.')
+        }
 
     return stream_claude_call(do_call)
-
-
-# ─── PROFILE ROUTES ──────────────────────────────────
-
-@app.route('/api/profile', methods=['GET'])
-@require_auth
-def get_my_profile():
-    profile = db.get_profile(request.user['id'])
-    if not profile:
-        return jsonify({'error': 'No profile yet — complete onboarding first'}), 404
-    return jsonify({
-        'avatar_context': profile['avatar_context'],
-        'voice_context': profile['voice_context'],
-        'calibration': profile['calibration'],
-        'algorithm_context': profile['algorithm_context']
-    })
-
-
-@app.route('/api/profile', methods=['PUT'])
-@require_auth
-def update_my_profile():
-    data = request.json
-    user = request.user
-    db.save_profile(
-        user['id'],
-        avatar_context=data.get('avatar_context', user.get('avatar_context', '')),
-        voice_context=data.get('voice_context', user.get('voice_context', '')),
-        calibration=data.get('calibration', user.get('calibration', '')),
-        algorithm_context=data.get('algorithm_context', user.get('algorithm_context', ''))
-    )
-    return jsonify({'ok': True})
 
 
 # ─── CONTENT ROUTES ──────────────────────────────────
@@ -538,13 +352,17 @@ def index():
     return send_from_directory(os.path.dirname(__file__), 'index.html')
 
 
+@app.route('/n40-brand.css')
+def brand_css():
+    return send_from_directory(os.path.dirname(__file__), 'n40-brand.css')
+
+
 @app.route('/images/<path:filename>')
 def serve_image(filename):
     return send_from_directory(os.path.join(os.path.dirname(__file__), 'images'), filename)
 
 
 @app.route('/api/next-question', methods=['POST'])
-@require_auth
 def next_question():
     """Generate the NEXT interview question dynamically, streamed to keep connection alive."""
     data = request.json
@@ -555,8 +373,7 @@ def next_question():
     if not topic:
         return jsonify({'error': 'No topic provided'}), 400
 
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
+    avatar, voice, cal, algo, user_name = get_contexts(data)
     client = get_client()
 
     history_text = ''
@@ -565,7 +382,7 @@ def next_question():
         history_text += f"Question: {entry.get('question', '')}\n"
         history_text += f"Answer: {entry.get('answer', '[skipped]')}\n"
 
-    system_prompt = f"""You are the content interview engine for {user['name']}.
+    system_prompt = f"""You are the content interview engine for {user_name}.
 
 {avatar}
 
@@ -575,24 +392,24 @@ def next_question():
 
 YOU ARE BUILDING A POST DYNAMICALLY — one question at a time. This is question #{question_number}.
 
-YOUR JOB: Look at EVERYTHING Lon has given you so far (his seed + all answers) and decide:
+YOUR JOB: Look at EVERYTHING {user_name} has given you so far (the seed + all answers) and decide:
 
-OPTION A — ASK THE NEXT QUESTION: Generate the ONE question that will most improve this content right now. Your question should adapt to what Lon just said. If he gave you a story, dig deeper into the emotion. If he gave you a framework, ask for the wound it explains. If he gave you a surface answer, push him toward the real thing.
+OPTION A — ASK THE NEXT QUESTION: Generate the ONE question that will most improve this content right now. Your question should adapt to what was just said. If a story was given, dig deeper into the emotion. If a framework, ask for the wound it explains. If a surface answer, push toward the real thing.
 
 OPTION B — SIGNAL READY: If you have enough material for a world-class LinkedIn post AND Substack article (you need: a story/moment, emotional truth, teachable framework, hook material, and a closing question angle), return {{"ready": true}} instead.
 
-VOICE COACHING — As you build questions, watch for gaps in Lon's writing using his correction list:
+VOICE COACHING — Watch for gaps using the correction list:
 - Over-explaining after the punch → ask for the SHORT version
 - Big concepts without anchors → ask for a real moment, a visible cost
 - Sermon-like cadence without story → push for lived detail
-- Saying "truth" without naming it → ask him to write the actual forbidden sentence
+- Saying "truth" without naming it → ask to write the actual forbidden sentence
 - Framework before wound → ask for the wound first
-- Stacking too many ideas → focus him on ONE punch
+- Stacking too many ideas → focus on ONE punch
 
 YOUR QUESTION MUST:
-- Reference specific details from what Lon already said (names, phrases, moments)
-- Target what's MISSING — do NOT ask for what he already gave you
-- Push him toward what will make this post saveable, shareable, and algorithm-optimized
+- Reference specific details from what was already said (names, phrases, moments)
+- Target what's MISSING — do NOT ask for what was already given
+- Push toward what will make this post saveable, shareable, and algorithm-optimized
 - Be conversational, not clinical — you're a creative partner, not a form
 
 ALGORITHM AWARENESS — You're building toward:
@@ -603,8 +420,8 @@ If asking a question, return ONLY this JSON:
 {{
   "ready": false,
   "label": "short label (e.g., The Moment, The Cost, The Line)",
-  "question": "the actual question — specific, referencing what Lon said",
-  "hint": "coaching text that helps Lon nail the answer. Be specific. Give examples of what a great answer looks like.",
+  "question": "the actual question — specific, referencing what was said",
+  "hint": "coaching text that helps nail the answer. Be specific. Give examples of what a great answer looks like.",
   "missing": ["list of what's still needed after this question, e.g., 'hook material', 'closing question angle'"]
 }}
 
@@ -612,7 +429,7 @@ If ready, return ONLY: {{"ready": true}}
 
 NEVER ask more than 6 questions total. By question 5-6, if you don't have enough, work with what you have and signal ready."""
 
-    user_content = f'Lon\'s seed:\n\n{topic}\n\n--- CONVERSATION SO FAR ---\n{history_text if history_text else "(First question — no answers yet)"}'
+    user_content = f'{user_name}\'s seed:\n\n{topic}\n\n--- CONVERSATION SO FAR ---\n{history_text if history_text else "(First question — no answers yet)"}'
 
     def do_call():
         msg = client.messages.create(
@@ -636,7 +453,6 @@ NEVER ask more than 6 questions total. By question 5-6, if you don't have enough
 
 
 @app.route('/api/generate-content', methods=['POST'])
-@require_auth
 def generate_content():
     """Given topic + full interview history, generate LinkedIn post + Substack post + infographic."""
     data = request.json
@@ -648,17 +464,15 @@ def generate_content():
     if not topic:
         return jsonify({'error': 'No topic provided'}), 400
 
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
+    avatar, voice, cal, algo, user_name = get_contexts(data)
     client = get_client()
 
-    # Build conversation history
     answers_text = ''
     for entry in history:
         if entry.get('answer') and entry.get('answer') != '[skipped]':
             answers_text += f"\n## {entry.get('label', 'Q')}\n{entry.get('answer', '')}\n"
 
-    system_prompt = f"""You are the content creation engine for Lon Stroschein and The Normal 40.
+    system_prompt = f"""You are the content creation engine for {user_name}.
 
 {avatar}
 
@@ -666,16 +480,15 @@ def generate_content():
 
 {algo}
 
-Your job: Take Lon's raw interview answers and write them into THREE things — in HIS voice. Read the calibration examples above. If your output doesn't sound like those, start over.
+Your job: Take raw interview answers and write them into THREE things — in the writer's voice. Read the calibration examples above. If your output doesn't sound like those, start over.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. LINKEDIN POST TEXT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Hook: Under 140 characters. A real moment or scene, NOT a motivational slogan.
-- Use Lon's actual words, stories, and names from the interview. Don't paraphrase into generic wisdom.
-- Sound like Lon — warm, casual, invitational. "Dude." "Look." "And, well." He's a friend writing, not a guru preaching.
+- Use actual words, stories, and names from the interview. Don't paraphrase into generic wisdom.
 - 1,100-1,500 characters total
-- End with a question that invites a STORY — "Share your version of that." NOT "Are you ready?"
+- End with a question that invites a STORY — NOT "Are you ready?"
 - NO URLs. NO links. NO "DM me." NO "link in comments."
 - Exactly 3 hashtags at the end
 - The reader should feel seen, not lectured
@@ -685,12 +498,12 @@ Your job: Take Lon's raw interview answers and write them into THREE things — 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Same core story, expanded into a letter to one person.
 
-- Title: Conversational, not clickbait. The kind of subject line a friend would write.
+- Title: Conversational, not clickbait.
 - Subtitle: One line that sets up the tension.
 - Length: 800-1,200 words
-- Open with a moment or scene — "I was sitting across from..." or "Last Tuesday, I got a call." NOT a thesis statement.
+- Open with a moment or scene — NOT a thesis statement.
 - More story, more texture than LinkedIn allows. Let it breathe.
-- Go deeper into the framework. Give the full explanation.
+- Go deeper into the framework.
 - Include section breaks (---) where natural.
 - End with something that sits with the reader, not a CTA.
 - Format in markdown (## for headings, **bold** for emphasis, --- for section breaks).
@@ -698,12 +511,12 @@ Same core story, expanded into a letter to one person.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 3. INFOGRAPHIC CONTENT (for a "{template}" template)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRITICAL: LinkedIn displays infographics at ~46% size in the feed. If someone can't read it WITHOUT tapping to expand, it fails.
+CRITICAL: LinkedIn displays infographics at ~46% size in the feed.
 
 RULES FOR ALL TEMPLATES:
 - Title: 6 words max. Punchy. Not a sentence.
 - Items: 3-5 words each. Fragments > full sentences.
-- NEVER write full sentences on an infographic. Billboard, not article.
+- NEVER write full sentences on an infographic.
 
 Structure by template:
 - "quote": single "quote" field — one devastating line, max 12 words
@@ -714,7 +527,7 @@ Structure by template:
 - "acronym": title + 3-5 letters, each with word + 5-word description
 - "system": title + 3-4 categorized rows (label + content, 5 words max)
 
-Include "Lon Stroschein | The Normal 40" as attribution (NO URL).
+Include "{user_name} | Content Engine" as attribution (NO URL).
 
 Return ONLY valid JSON:
 {{
@@ -739,7 +552,7 @@ Return ONLY valid JSON:
 
 No markdown fences. No explanation. Just the JSON."""
 
-    user_msg = f'Topic: {topic}\nTemplate: {template}\nColor mode: {color_mode}\n\nLon\'s raw answers:\n{answers_text}'
+    user_msg = f'Topic: {topic}\nTemplate: {template}\nColor mode: {color_mode}\n\n{user_name}\'s raw answers:\n{answers_text}'
 
     def do_call():
         msg = client.messages.create(
@@ -755,25 +568,22 @@ No markdown fences. No explanation. Just the JSON."""
 
 
 @app.route('/api/refine', methods=['POST'])
-@require_auth
 def refine():
-    """Iterate on existing content with feedback. Supports post, substack, infographic, or all."""
+    """Iterate on existing content with feedback."""
     data = request.json
     current_post = data.get('postText', '')
     current_substack = data.get('substackBody', '')
     feedback = data.get('feedback', '')
     topic = data.get('topic', '')
-    target = data.get('target', 'post')  # post, substack, infographic, both, all
+    target = data.get('target', 'post')
     template = data.get('template', 'list')
     infographic_data = data.get('infographicData', {})
 
+    avatar, voice, cal, algo, user_name = get_contexts(data)
     client = get_client()
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
 
     infographic_json = json.dumps(infographic_data, indent=2) if infographic_data else '{}'
 
-    # Build the JSON return spec based on target
     return_fields = []
     if target in ('post', 'both', 'all'):
         return_fields.append('"postText": "refined LinkedIn post"')
@@ -784,13 +594,13 @@ def refine():
     if target in ('infographic', 'both', 'all'):
         return_fields.append('"infographic": { ...template-specific fields... }')
 
-    system_prompt = f"""You are the content refinement engine for Lon Stroschein / The Normal 40.
+    system_prompt = f"""You are the content refinement engine for {user_name}.
 
 {voice}
 {algo}
 
-Lon has given you feedback on his current content. Apply his feedback precisely while maintaining:
-- His voice (researcher, truth-teller)
+Apply the feedback precisely while maintaining:
+- The writer's voice
 - Algorithm optimization (saves, hook under 140 chars, 1100-1500 chars, 3 hashtags for LinkedIn)
 - The avatar connection (they must see themselves in this)
 - NEVER include URLs, links, or website references
@@ -820,7 +630,7 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
         user_content += f'Current Substack article:\n{current_substack}\n\n'
     if infographic_data:
         user_content += f'Current infographic data:\n{infographic_json}\n\n'
-    user_content += f'Lon\'s feedback:\n{feedback}'
+    user_content += f'Feedback:\n{feedback}'
 
     def do_call():
         msg = client.messages.create(
@@ -836,7 +646,6 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
 
 
 @app.route('/api/recycle', methods=['POST'])
-@require_auth
 def recycle():
     """Recycle an old post into fresh algorithm-optimized content + visual."""
     data = request.json
@@ -854,8 +663,7 @@ def recycle():
         'long': '1,800-2,200 characters'
     }.get(length, '1,100-1,500 characters')
 
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
+    avatar, voice, cal, algo, user_name = get_contexts(data)
     client = get_client()
 
     if fmt == 'image':
@@ -867,13 +675,8 @@ For the "visual" field, return:
 These lines will be overlaid on a branded B&W photo.
 
 WHAT MAKES PEOPLE SAVE AN IMAGE — pick ONE of these three types:
-1. A DIRECT REFRAME — a line that changes how they see their situation. Examples of Lon's:
-   - "You are admired for the very things that are exhausting you."
-   - "Autopilot isn't failure. It's just where growth goes to die."
-   - "Staying is not free. It just sends the bill later."
-2. A SHORT LISTICLE (up to 4 items) — a list of things they'll screenshot. Examples:
-   - "Your three options:" / "Change it." / "Accept it." / "Quit it."
-   - "Time. Energy. Passion." / "Focus. Joy. Identity." / "That's what you trade."
+1. A DIRECT REFRAME — a line that changes how they see their situation.
+2. A SHORT LISTICLE (up to 4 items) — a list of things they'll screenshot.
 3. A QUOTE THAT CHANGES HOW THEY SEE THE WORLD — pull the strongest line from the post itself.
 
 Rules:
@@ -882,9 +685,6 @@ Rules:
 - The last line lands the punch
 - Billboard test: readable in 3 seconds
 - NO URLs, NO hashtags, NO attribution (branding is on the photo)
-- Pull from the post's STRONGEST line — the one people would screenshot even without the image
-- Do NOT summarize the post. Do NOT create a generic motivational phrase.
-- Do NOT use statistics or numbers on the image unless they're devastating.
 """
     else:
         visual_instructions = f"""
@@ -904,14 +704,13 @@ Rules for carousel:
 - Middle slides = the framework, one idea per slide
 - Each slide body: 2-3 sentences MAX. Dense but scannable.
 - NO URLs, NO links, NO "DM me", NO website references
-- Give away the FULL framework. Every slide should teach something usable TODAY.
 """
 
     def do_call():
         msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=4000,
-        system=f"""You are refreshing a post for Lon Stroschein and The Normal 40.
+        system=f"""You are refreshing a post for {user_name}.
 
 {avatar}
 
@@ -919,16 +718,14 @@ Rules for carousel:
 
 {algo}
 
-Your job: REFRESH this post for today's algorithm — do NOT rewrite it. Lon wrote it. His voice IS the post. Keep his stories, his names, his warmth, his casual tone, his invitational endings.
-
-CRITICAL: If the output doesn't sound like something Lon would actually post, you've failed. Read the calibration examples above — THAT is the target voice.
+Your job: REFRESH this post for today's algorithm — do NOT rewrite it. The voice IS the post. Keep stories, names, warmth, casual tone, invitational endings.
 
 WHAT YOU KEEP (almost everything):
-- His exact phrasing, stories, names, places, and specific details
-- His casual warmth — "Dude", "Ugh", "Look", "And, well", "Holy crap"
-- His invitational endings — "Be up to something", "Welcome to the Normal 40"
-- His structure and flow — don't reorganize
-- His imperfections and vulnerability — that's what makes it HIM
+- Exact phrasing, stories, names, places, and specific details
+- Casual warmth
+- Invitational endings
+- Structure and flow — don't reorganize
+- Imperfections and vulnerability — that's what makes it real
 
 WHAT YOU MAY TIGHTEN (lightly):
 - Cut any line that restates what a stronger line already said
@@ -960,7 +757,6 @@ No markdown fences. No explanation. Just the JSON.""",
 
 
 @app.route('/api/recycle-refine', methods=['POST'])
-@require_auth
 def recycle_refine():
     """Refine recycled content with feedback."""
     data = request.json
@@ -970,9 +766,8 @@ def recycle_refine():
     visual_data = data.get('visualData', {})
     feedback = data.get('feedback', '')
 
+    avatar, voice, cal, algo, user_name = get_contexts(data)
     client = get_client()
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
 
     if target == 'visual':
         if fmt == 'image':
@@ -1017,7 +812,6 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
 
 
 @app.route('/api/generate-note', methods=['POST'])
-@require_auth
 def generate_note():
     """Take a short thought and write it as a LinkedIn Note — 4 length modes."""
     data = request.json
@@ -1027,6 +821,8 @@ def generate_note():
 
     if not thought:
         return jsonify({'error': 'No thought provided'}), 400
+
+    avatar, voice, cal, algo, user_name = get_contexts(data)
 
     edge_instructions = {
         'teach': 'The note should TEACH — give the reader something they can use today. Name the mechanism. Give the language.',
@@ -1040,21 +836,7 @@ def generate_note():
 
 LENGTH: 1-2 lines. Under 150 characters. That's it.
 
-THIS IS NOT LON'S VOICE. This is algorithm-optimized, pattern-interrupt, scroll-stopping copy.
-
-STUDY THESE PATTERNS:
-
-Justin Welsh style:
-- "The biggest lie in business: 'I don't have time.' You have time. You just don't have priorities."
-- "Stop asking for advice from people who haven't done the thing."
-- "Your network isn't your net worth. Your skills are."
-- "Nobody is coming to save your business. That's the best news you'll hear today."
-
-Alex Hormozi style:
-- "Rich people buy time. Poor people buy stuff."
-- "If you're not embarrassed by what you launched, you waited too long."
-- "The market doesn't care about your feelings. It cares about your value."
-- "You don't need more information. You need more action."
+THIS IS NOT the usual voice. This is algorithm-optimized, pattern-interrupt, scroll-stopping copy.
 
 RULES:
 - One line or two. MAX.
@@ -1068,14 +850,12 @@ RULES:
 
 LENGTH: 3-5 lines. 150-300 characters.
 
-Still in the Welsh/Hormozi zone but with slightly more room. A tight observation with one twist or payoff.
-
 PATTERNS:
 - Open with the contrarian claim
 - One line of proof or context
 - Close with the punchline
 
-Still blunt. Still tactical. NOT Lon's warm storytelling voice — this is content-creator sharp.
+Still blunt. Still tactical.
 
 RULES:
 - 3-5 lines max
@@ -1083,48 +863,36 @@ RULES:
 - Every line earns its place
 - The last line should be the one people remember""",
 
-        'note': """## NOTE MODE — Lon's voice, room to breathe
+        'note': f"""## NOTE MODE — Room to breathe
 
 LENGTH: 6-10 lines. 300-600 characters.
 
-THIS IS LON. Read the calibration examples below. Warm. Invitational. Real.
-
-""" + LON_CALIBRATION + """
+{cal}
 
 RULES:
 - 6-10 lines. Let the thought develop.
-- Sound like Lon — casual, warm, invitational
-- Can include a brief moment or image ("I was sitting on the porch..." or "I saw something yesterday...")
-- End with an invitation, not a command — "Be up to something." / "Welcome to the Normal 40."
+- Warm, invitational, real
+- Can include a brief moment or image
 - NO hashtags. NO links. NO emojis.""",
 
-        'letter': """## LETTER MODE — Lon at his most personal
+        'letter': f"""## LETTER MODE — Most personal
 
 LENGTH: 10-20 lines. 600-1200 characters.
 
-This is Lon writing a short letter to one person. A story, a confession, a memory. The kind of thing that makes people DM "I needed this today."
+Write a short letter to one person. A story, a confession, a memory.
 
-""" + LON_CALIBRATION + """
-
-WHAT THIS SOUNDS LIKE:
-- "I found myself missing the farm this morning..."
-- "Let's take a walk. We've got a few things to talk about."
-- "I saw an old friend yesterday. Actually, a young friend."
-- A real moment. A name. A place. A time. Then the lesson that lives inside it.
+{cal}
 
 RULES:
 - 10-20 lines. Let the story breathe.
-- Sound like Lon — warm, specific, vulnerable, invitational
+- Warm, specific, vulnerable, invitational
 - Include a real detail (a place, a time of day, a person's name if relevant)
-- End with his signature: "Be up to something." or "Welcome to the Normal 40." or "This is a lifetime...up to something."
 - NO hashtags at end. NO links. NO emojis."""
     }.get(length, '')
 
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
     client = get_client()
 
-    sys_prompt = f"""You are shaping {user['name']}'s raw thought into a LinkedIn Note.
+    sys_prompt = f"""You are shaping {user_name}'s raw thought into a LinkedIn Note.
 
 {avatar}
 
@@ -1132,17 +900,17 @@ RULES:
 
 {length_instructions}
 
-CRITICAL — KEEP LON'S WORDS:
-You are SHAPING, not rewriting. His words ARE the post.
+CRITICAL — KEEP THE WRITER'S WORDS:
+You are SHAPING, not rewriting. The words ARE the post.
 
-- USE his exact phrasing, word choices, rhythm
-- DO NOT add stories he didn't mention
-- DO NOT wrap his thought in a narrative
-- DO NOT soften his edge or pad with context
+- USE exact phrasing, word choices, rhythm
+- DO NOT add stories not mentioned
+- DO NOT wrap the thought in a narrative
+- DO NOT soften the edge or pad with context
 - You may TIGHTEN (cut words that don't earn their place)
 - You may SHARPEN (make the punchline land harder)
 - You may RESTRUCTURE (reorder for impact — punch first, context second)
-- You may ADD one line max — but it must sound like Lon
+- You may ADD one line max
 
 Result: A truth bomb. Direct conversation with one reader. Not a story. Not a sermon.
 
@@ -1150,7 +918,7 @@ NEVER USE: leverage, optimize, synergy, actionable, transformative, unlock your 
 
 Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, ready to post."""
 
-    usr_msg = f'Lon\'s raw thought (keep his words, shape don\'t rewrite):\n\n{thought}'
+    usr_msg = f'{user_name}\'s raw thought (keep the words, shape don\'t rewrite):\n\n{thought}'
 
     def do_call():
         msg = client.messages.create(
@@ -1163,7 +931,6 @@ Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, re
 
 
 @app.route('/api/refine-note', methods=['POST'])
-@require_auth
 def refine_note():
     """Refine a LinkedIn Note with feedback."""
     data = request.json
@@ -1174,14 +941,13 @@ def refine_note():
     feedback = data.get('feedback', '')
 
     length_desc = {
-        'sniper': 'SNIPER: 1-2 lines max, under 150 chars. Welsh/Hormozi blunt. No warmth, no stories, just the hit.',
-        'punch': 'PUNCH: 3-5 lines, 150-300 chars. Sharp, tactical, pattern-interrupt. Not Lon\'s warm voice.',
-        'note': 'NOTE: 6-10 lines, 300-600 chars. Lon\'s real voice — warm, invitational, casual. End with an invitation.',
-        'letter': 'LETTER: 10-20 lines, 600-1200 chars. Lon\'s personal voice — story, confession, memory. Real details, real warmth.'
+        'sniper': 'SNIPER: 1-2 lines max, under 150 chars. Blunt. No warmth, no stories, just the hit.',
+        'punch': 'PUNCH: 3-5 lines, 150-300 chars. Sharp, tactical, pattern-interrupt.',
+        'note': 'NOTE: 6-10 lines, 300-600 chars. Warm, invitational, casual. End with an invitation.',
+        'letter': 'LETTER: 10-20 lines, 600-1200 chars. Personal — story, confession, memory. Real details, real warmth.'
     }.get(length, '')
 
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
+    avatar, voice, cal, algo, user_name = get_contexts(data)
     client = get_client()
 
     sys_prompt = f"""You are refining a LinkedIn Note.
@@ -1189,7 +955,7 @@ def refine_note():
 Mode: {length_desc}
 Edge: {edge}.
 
-Apply the feedback precisely. Stay in the mode — if it's sniper/punch, keep it blunt and tactical. If it's note/letter, keep it in Lon's warm voice.
+Apply the feedback precisely. Stay in the mode.
 
 NO hashtags. NO links. NO emojis.
 
@@ -1257,7 +1023,6 @@ Key themes: "Your final line is still unwritten." / "Will your final line be: 'I
 
 
 @app.route('/api/generate-trade', methods=['POST'])
-@require_auth
 def generate_trade():
     """Generate content from a chapter of The Trade book."""
     data = request.json
@@ -1268,24 +1033,23 @@ def generate_trade():
     chapter = TRADE_CHAPTERS.get(chapter_num, TRADE_CHAPTERS[1])
 
     lens_instructions = {
-        'framework': 'Pull the core FRAMEWORK from this chapter and teach it. Name the model, the steps, the pattern. Give the reader something they can use today. But wrap it in a story — the way Lon always does.',
-        'story': 'Tell a STORY from this chapter. A real moment — a person, a place, a conversation. Let the teaching come through the story, not after it. The reader should feel like they were there.',
-        'confession': 'Write this as a CONFESSION. Lon admitting something vulnerable about his own journey through this chapter. The kind of thing that makes people DM you "I needed to hear this." Own the mess. Own the doubt.',
-        'reframe': 'Take the biggest idea in this chapter and REFRAME it. Show the reader the thing they\'ve been looking at wrong. Flip the assumption. The ground should shift under their feet.',
-        'challenge': 'CHALLENGE the reader directly from this chapter. Not a sermon — a dare. The kind of thing Lon says across a table: "Look. Here\'s what I know. Here\'s what you\'re avoiding. Here\'s what it\'s costing you."'
+        'framework': 'Pull the core FRAMEWORK from this chapter and teach it. Name the model, the steps, the pattern. Give the reader something they can use today. But wrap it in a story.',
+        'story': 'Tell a STORY from this chapter. A real moment — a person, a place, a conversation. Let the teaching come through the story, not after it.',
+        'confession': 'Write this as a CONFESSION. Admitting something vulnerable about the journey through this chapter. The kind of thing that makes people DM "I needed to hear this."',
+        'reframe': 'Take the biggest idea in this chapter and REFRAME it. Show the reader the thing they\'ve been looking at wrong. Flip the assumption.',
+        'challenge': 'CHALLENGE the reader directly from this chapter. Not a sermon — a dare. The kind of thing said across a table.'
     }.get(lens, '')
 
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
+    avatar, voice, cal, algo, user_name = get_contexts(data)
     client = get_client()
 
-    angle_line = f"\n\n{user['name']}'s specific angle for this post:\n{angle}" if angle else ""
+    angle_line = f"\n\n{user_name}'s specific angle for this post:\n{angle}" if angle else ""
 
     def do_call():
         msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=6000,
-        system=f"""You are writing content from Lon Stroschein's book "The Trade" — an Amazon #1 Bestseller about elite performers who are winning on paper but dying inside, and the courage it takes to trade what you have for who you're capable of becoming.
+        system=f"""You are writing content from "The Trade" — an Amazon #1 Bestseller about elite performers who are winning on paper but dying inside.
 
 {avatar}
 
@@ -1303,12 +1067,10 @@ def generate_trade():
 
 {lens_instructions}
 
-Write as Lon. Not an idealized version — the REAL Lon. Read the calibration examples. He tells stories with real names and places. He's warm and casual. He invites, he doesn't command. He owns his imperfections. His endings are invitations.
-
 PRODUCE THREE THINGS:
 
 ### 1. LINKEDIN POST (1,100-1,500 characters)
-- Teach from this chapter in Lon's voice
+- Teach from this chapter
 - Open with a moment, a memory, or a line from the book — not a motivational slogan
 - The reader should learn something usable. Give everything away.
 - End with a question that invites a STORY, not a yes/no
@@ -1323,7 +1085,7 @@ PRODUCE THREE THINGS:
 
 ### 3. IMAGE TEXT
 - 3-5 short lines for a branded 1080x1080 image
-- Pull from the chapter's strongest line or Lon's actual phrasing
+- Pull from the chapter's strongest line or actual phrasing
 - Each line under 8 words. Last line lands.
 - NO URLs, hashtags, or attribution.
 
@@ -1359,7 +1121,6 @@ def vault():
     with open(vault_path, 'r') as f:
         posts = json.load(f)
 
-    # Optional filtering
     search = request.args.get('q', '').lower()
     min_comments = int(request.args.get('min_comments', 0))
     min_chars = int(request.args.get('min_chars', 0))
@@ -1380,7 +1141,6 @@ def vault():
 
 
 @app.route('/api/vault-recycle', methods=['POST'])
-@require_auth
 def vault_recycle():
     """Recycle a vault post into fresh LinkedIn + Substack content."""
     data = request.json
@@ -1390,15 +1150,14 @@ def vault_recycle():
     if not original:
         return jsonify({'error': 'No post provided'}), 400
 
+    avatar, voice, cal, algo, user_name = get_contexts(data)
     client = get_client()
-    user = request.user
-    avatar, voice, cal, algo = get_user_contexts(user)
 
     def do_call():
         msg = client.messages.create(
         model='claude-sonnet-4-20250514',
         max_tokens=6000,
-        system=f"""You are refreshing a LinkedIn post for Lon Stroschein.
+        system=f"""You are refreshing a LinkedIn post for {user_name}.
 
 {avatar}
 
@@ -1406,43 +1165,38 @@ def vault_recycle():
 
 {algo}
 
-## YOUR JOB
-
-This post is from {original_date or "Lon's archive"}. It already worked — people responded to it. The original post IS Lon's voice. Your job is to REFRESH it for today's algorithm, NOT rewrite it in some idealized version of his voice.
+This post is from {original_date or "the archive"}. It already worked — people responded to it. Your job is to REFRESH it for today's algorithm, NOT rewrite it.
 
 CRITICAL RULES:
-- Keep his EXACT phrasing wherever it's strong — which is most of it
-- Keep his stories, names, places, and specific details INTACT
-- Keep his casual warmth — "Dude", "Ugh", "Look", "And, well"
-- Keep his invitational endings — "Be up to something", "Welcome to the Normal 40"
-- DO NOT add motivational speaker language he doesn't use
-- DO NOT replace his stories with abstract wisdom
+- Keep exact phrasing wherever it's strong — which is most of it
+- Keep stories, names, places, and specific details INTACT
+- Keep casual warmth
+- Keep invitational endings
+- DO NOT add motivational speaker language
+- DO NOT replace stories with abstract wisdom
 - DO NOT make it sound more "polished" or "professional"
-- DO NOT add words from the NEVER USE list: leverage, optimize, synergy, actionable insights, transformative, unlock your potential, maximize, strategic alignment, live your best life, step into your power, embrace the journey, thrive, abundance, empowered, curated, lean into, show up as your authentic self
+- DO NOT add words from the NEVER USE list
 
 WHAT YOU MAY DO:
-- Tighten the hook so it lands in under 140 characters (before "see more")
+- Tighten the hook so it lands in under 140 characters
 - Cut lines that say the same thing twice
-- Make sure the post ends with a question that invites a story (NOT yes/no)
+- Make sure the post ends with a question that invites a story
 - Add 3 hashtags at the end
 - Target 1,100-1,500 characters
 - Remove any URLs or "link in comments" type language
-- If the original is a personal announcement (book launch, event) that's now outdated, shift the focus to the LESSON or STORY inside it
-
-IF THE RECYCLED VERSION DOESN'T SOUND LIKE THE ORIGINAL, YOU HAVE FAILED.
 
 PRODUCE THREE THINGS:
 
 ### 1. LINKEDIN POST (1,100-1,500 characters)
-Refreshed version of his post. Must still sound like him.
+Refreshed version. Must still sound like the original.
 
 ### 2. SUBSTACK ARTICLE (800-1,200 words)
-Same core story and lesson, expanded. Write it like Lon writes — a letter to one person. Open with a moment or scene. More texture, more story than LinkedIn allows. Let it breathe. Use section breaks (---) where natural. NO CTAs, NO links.
+Same core story and lesson, expanded. A letter to one person. More texture, more story. NO CTAs, NO links.
 
 ### 3. IMAGE TEXT
 3-5 short lines for a branded 1080x1080 image.
-Pull from the post's strongest ACTUAL line — don't invent a new one.
-Each line under 8 words. Last line lands the punch.
+Pull from the post's strongest ACTUAL line.
+Each line under 8 words. Last line lands.
 NO URLs, hashtags, or attribution.
 
 Return ONLY valid JSON:

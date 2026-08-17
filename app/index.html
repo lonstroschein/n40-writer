@@ -24,28 +24,29 @@ window.addEventListener('load', function() {
 });
 </script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@400;500&display=swap');
 
   * { margin:0; padding:0; box-sizing:border-box; }
 
   :root {
-    --bg: #080810;
-    --bg-card: #0E0E1A;
-    --bg-input: #141422;
-    --gold: #D4A040;
-    --gold-light: #EDD070;
-    --gold-dim: #B09040;
-    --text: #F5EEE2;
-    --text-dim: #C8BCA8;
-    --text-faint: #7A7260;
-    --border: rgba(212,160,64,0.2);
-    --border-active: rgba(212,160,64,0.5);
+    --bg: #F7F6F2;
+    --bg-card: #EFEDE6;
+    --bg-input: #FFFFFF;
+    --gold: #4059AD;
+    --gold-light: #7C90E0;
+    --gold-dim: #4059AD;
+    --text: #16170F;
+    --text-dim: #766153;
+    --text-faint: #A9B4C2;
+    --border: rgba(64,89,173,0.18);
+    --border-active: rgba(64,89,173,0.45);
     --danger: #E05050;
     --success: #50C878;
+    --orange: #FF914D;
   }
 
   body {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Newsreader', Georgia, serif;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
@@ -60,10 +61,11 @@ window.addEventListener('load', function() {
     padding: 24px 48px;
     border-bottom: 1px solid var(--border);
   }
-  .logo { font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); }
-  .logo span { color: var(--text-dim); font-weight: 300; }
+  .logo { font-family: 'Oswald', 'Arial Narrow', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 1px; color: var(--text); }
+  .logo span { color: var(--text-dim); font-weight: 400; font-size: 14px; letter-spacing: 2px; }
+  .logo .sq { display:inline-block; width:0.20em; height:0.20em; background:var(--orange); margin:0 0.06em; vertical-align:baseline; }
   .header-right { display:flex; align-items:center; gap:20px; }
-  .header-date { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text-faint); }
+  .header-date { font-family: 'Oswald', sans-serif; font-size: 12px; font-weight:500; letter-spacing:1px; color: var(--text-faint); text-transform:uppercase; }
   .status-dot { width:8px; height:8px; border-radius:50%; background:var(--danger); }
   .status-dot.connected { background:var(--success); }
 
@@ -73,7 +75,8 @@ window.addEventListener('load', function() {
   }
   nav button {
     background:none; border:none; padding:16px 28px; color:var(--text-dim);
-    font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500;
+    font-family:'Oswald','Arial Narrow',sans-serif; font-size:13px; font-weight:600;
+    letter-spacing:1.5px; text-transform:uppercase;
     cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s;
   }
   nav button:hover { color:var(--text); }
@@ -86,13 +89,13 @@ window.addEventListener('load', function() {
   /* ─── CARDS & LAYOUT ─── */
   .card {
     background:var(--bg-card); border:1px solid var(--border);
-    border-radius:12px; padding:36px; margin-bottom:24px;
+    border-radius:4px; padding:36px; margin-bottom:24px;
   }
   .card h2 {
-    font-size:13px; font-family:'DM Mono',monospace; color:var(--gold);
-    text-transform:uppercase; letter-spacing:2px; margin-bottom:8px;
+    font-size:12px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:700; color:var(--gold);
+    text-transform:uppercase; letter-spacing:3px; margin-bottom:8px;
   }
-  .card .question { font-size:22px; font-weight:500; line-height:1.5; margin-bottom:8px; }
+  .card .question { font-family:'Playfair Display',Georgia,serif; font-size:22px; font-weight:700; line-height:1.4; margin-bottom:8px; }
   .card .hint {
     font-size:14px; color:var(--text-faint); line-height:1.6;
     margin-bottom:24px; font-style:italic;
@@ -100,8 +103,8 @@ window.addEventListener('load', function() {
 
   textarea, input[type="text"] {
     width:100%; background:var(--bg-input); border:1px solid var(--border);
-    border-radius:8px; padding:16px 20px; color:var(--text);
-    font-family:'DM Sans',sans-serif; font-size:16px; line-height:1.6;
+    border-radius:4px; padding:16px 20px; color:var(--text);
+    font-family:'Newsreader',Georgia,serif; font-size:16px; line-height:1.6;
     resize:vertical; transition:border-color 0.2s;
   }
   textarea:focus, input[type="text"]:focus { outline:none; border-color:var(--border-active); }
@@ -111,10 +114,11 @@ window.addEventListener('load', function() {
 
   .btn-row { display:flex; gap:12px; margin-top:24px; justify-content:flex-end; }
   .btn {
-    padding:12px 32px; border-radius:8px; font-family:'DM Sans',sans-serif;
-    font-size:14px; font-weight:600; cursor:pointer; border:none; transition:all 0.2s;
+    padding:12px 32px; border-radius:4px; font-family:'Oswald','Arial Narrow',sans-serif;
+    font-size:14px; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+    cursor:pointer; border:none; transition:all 0.2s;
   }
-  .btn-primary { background:var(--gold); color:var(--bg); }
+  .btn-primary { background:var(--gold); color:#fff; }
   .btn-primary:hover { background:var(--gold-light); }
   .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
   .btn-secondary { background:transparent; color:var(--text-dim); border:1px solid var(--border); }
@@ -142,23 +146,23 @@ window.addEventListener('load', function() {
   .two-col { display:grid; grid-template-columns:1fr 360px; gap:32px; }
   .sidebar { position:sticky; top:40px; align-self:start; }
   .sidebar h3 {
-    font-size:13px; font-family:'DM Mono',monospace; color:var(--text-faint);
-    text-transform:uppercase; letter-spacing:2px; margin-bottom:16px;
+    font-size:12px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:700; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:3px; margin-bottom:16px;
   }
   .answer-item {
-    background:var(--bg-input); border-radius:8px; padding:16px;
-    margin-bottom:12px; border-left:3px solid var(--gold-dim);
+    background:var(--bg-input); border-radius:4px; padding:16px;
+    margin-bottom:12px; border-left:3px solid var(--orange);
   }
   .answer-item .label {
-    font-size:11px; font-family:'DM Mono',monospace; color:var(--gold-dim);
-    text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
+    font-size:11px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; color:var(--gold-dim);
+    text-transform:uppercase; letter-spacing:2px; margin-bottom:6px;
   }
   .answer-item .text { font-size:14px; color:var(--text-dim); line-height:1.5; max-height:80px; overflow:hidden; }
 
   /* ─── TEMPLATE GRID ─── */
   .template-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-top:24px; }
   .template-card {
-    background:var(--bg-card); border:2px solid var(--border); border-radius:12px;
+    background:var(--bg-card); border:2px solid var(--border); border-radius:4px;
     padding:28px; cursor:pointer; transition:all 0.2s;
   }
   .template-card:hover { border-color:var(--border-active); transform:translateY(-2px); }
@@ -166,8 +170,8 @@ window.addEventListener('load', function() {
   .template-card h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
   .template-card p { font-size:13px; color:var(--text-dim); line-height:1.5; }
   .template-card .t-best {
-    margin-top:12px; font-size:11px; font-family:'DM Mono',monospace;
-    color:var(--gold-dim); text-transform:uppercase; letter-spacing:1px;
+    margin-top:12px; font-size:11px; font-family:'Oswald','Arial Narrow',sans-serif;
+    font-weight:600; color:var(--gold-dim); text-transform:uppercase; letter-spacing:2px;
   }
 
   /* ─── PREVIEW ─── */
@@ -184,8 +188,8 @@ window.addEventListener('load', function() {
   /* ─── POST TEXT ─── */
   .post-box { margin-top:32px; }
   .post-box h3 {
-    font-size:13px; font-family:'DM Mono',monospace; color:var(--gold);
-    text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;
+    font-size:12px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:700; color:var(--gold);
+    text-transform:uppercase; letter-spacing:3px; margin-bottom:4px;
   }
   .char-count { font-family:'DM Mono',monospace; font-size:12px; color:var(--text-faint); margin-bottom:12px; }
   .char-count.warning { color:var(--danger); }
@@ -207,16 +211,16 @@ window.addEventListener('load', function() {
   }
   .stat-card .val { font-size:36px; font-weight:700; color:var(--gold); }
   .stat-card .lbl {
-    font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);
-    text-transform:uppercase; letter-spacing:1px; margin-top:4px;
+    font-size:11px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:2px; margin-top:4px;
   }
   table {
     width:100%; border-collapse:collapse; background:var(--bg-card);
     border-radius:12px; overflow:hidden; border:1px solid var(--border);
   }
   th {
-    text-align:left; padding:16px 20px; font-size:11px; font-family:'DM Mono',monospace;
-    color:var(--text-faint); text-transform:uppercase; letter-spacing:1.5px;
+    text-align:left; padding:16px 20px; font-size:11px; font-family:'Oswald','Arial Narrow',sans-serif;
+    font-weight:600; color:var(--text-faint); text-transform:uppercase; letter-spacing:2px;
     border-bottom:1px solid var(--border); background:var(--bg-input);
   }
   td {
@@ -291,60 +295,48 @@ window.addEventListener('load', function() {
 </head>
 <body>
 
-<!-- ═══ LOGIN SCREEN ═══ -->
-<div id="loginScreen" style="display:none; position:fixed; inset:0; z-index:9999; background:var(--bg); align-items:center; justify-content:center;">
-  <div style="max-width:400px; width:90%; padding:40px;">
-    <div style="font-size:28px; font-weight:700; margin-bottom:8px;">N.40 <span style="font-weight:400; color:var(--text-dim);">/ Content Engine</span></div>
-    <p style="color:var(--text-dim); margin-bottom:32px;">Log in to start writing.</p>
-
-    <div id="loginForm">
-      <input type="email" id="loginEmail" placeholder="Email" style="width:100%; margin-bottom:12px; padding:14px; font-size:16px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
-      <input type="password" id="loginPassword" placeholder="Password" style="width:100%; margin-bottom:16px; padding:14px; font-size:16px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
-      <button class="btn btn-primary" onclick="doLogin()" style="width:100%; margin-bottom:12px;">Log In</button>
-      <p style="text-align:center; color:var(--text-dim); font-size:14px;">Have an invite code? <a href="#" onclick="showRegisterForm(); return false;" style="color:var(--accent);">Register here</a></p>
-      <div id="loginError" style="color:#FF914D; text-align:center; margin-top:12px; font-size:14px;"></div>
+<!-- ═══ WELCOME SCREEN ═══ -->
+<div id="welcomeScreen" style="display:none; position:fixed; inset:0; z-index:9999; background:var(--bg); align-items:center; justify-content:center;">
+  <div style="max-width:480px; width:90%; padding:40px;">
+    <div style="text-align:center; margin-bottom:32px;">
+      <div style="font-family:'Oswald','Arial Narrow',sans-serif; font-size:32px; font-weight:700; letter-spacing:1px; margin-bottom:4px;">N<span style="display:inline-block; width:0.20em; height:0.20em; background:#FF914D; margin:0 0.06em; vertical-align:baseline;"></span>40 <span style="font-weight:400; font-size:20px; color:var(--text-dim); letter-spacing:2px;">CONTENT ENGINE</span></div>
+      <div style="width:42px; height:3px; background:var(--orange); margin:16px auto;"></div>
+      <p style="font-family:'Newsreader',Georgia,serif; color:var(--text-dim); font-size:16px; line-height:1.6;">Write LinkedIn posts, Substack articles, and branded visuals — all in your voice.</p>
     </div>
 
-    <div id="registerForm" style="display:none;">
-      <input type="text" id="regCode" placeholder="Invite code" style="width:100%; margin-bottom:12px; padding:14px; font-size:16px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
-      <input type="password" id="regPassword" placeholder="Choose a password" style="width:100%; margin-bottom:16px; padding:14px; font-size:16px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);">
-      <button class="btn btn-primary" onclick="doRegister()" style="width:100%; margin-bottom:12px;">Set Up Account</button>
-      <p style="text-align:center; color:var(--text-dim); font-size:14px;"><a href="#" onclick="showLoginForm(); return false;" style="color:var(--accent);">Back to login</a></p>
-      <div id="regError" style="color:#FF914D; text-align:center; margin-top:12px; font-size:14px;"></div>
+    <div id="welcomeStart">
+      <input type="text" id="welcomeName" placeholder="Your name" style="width:100%; margin-bottom:16px; padding:14px; font-size:16px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;">
+      <button class="btn btn-primary" onclick="beginOnboarding()" style="width:100%; margin-bottom:12px;">Build My Voice Profile</button>
+      <p style="text-align:center; color:var(--text-faint); font-size:14px; margin-top:8px;"><a href="#" onclick="skipOnboarding(); return false;" style="color:var(--gold); text-decoration:none;">Skip — use defaults</a></p>
     </div>
-  </div>
-</div>
 
-<!-- ═══ ONBOARDING SCREEN ═══ -->
-<div id="onboardScreen" style="display:none; position:fixed; inset:0; z-index:9998; background:var(--bg); overflow-y:auto;">
-  <div style="max-width:600px; margin:0 auto; padding:40px 20px;">
-    <div style="font-size:24px; font-weight:700; margin-bottom:8px;">Welcome to the Content Engine</div>
-    <p style="color:var(--text-dim); margin-bottom:32px;">Let's build your writing voice. I'll ask you some questions so I can learn how you write.</p>
-
-    <div id="onboardQArea">
-      <div id="onboardQLabel" style="font-size:13px; font-weight:600; text-transform:uppercase; color:var(--accent); margin-bottom:8px;"></div>
-      <div id="onboardQText" style="font-size:18px; font-weight:500; margin-bottom:8px;"></div>
+    <div id="welcomeQArea" style="display:none;">
+      <div id="onboardQLabel" style="font-family:'Oswald','Arial Narrow',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:3px; color:var(--gold); margin-bottom:8px;"></div>
+      <div id="onboardQText" style="font-family:'Playfair Display',Georgia,serif; font-size:20px; font-weight:700; line-height:1.4; margin-bottom:8px;"></div>
       <div id="onboardQHint" style="font-size:14px; color:var(--text-dim); font-style:italic; margin-bottom:16px;"></div>
-      <textarea id="onboardAnswer" rows="5" placeholder="Speak naturally..." style="width:100%; font-size:16px; padding:14px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); margin-bottom:16px;"></textarea>
+      <textarea id="onboardAnswer" rows="5" placeholder="Speak naturally..." style="width:100%; font-size:16px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); margin-bottom:16px; font-family:'Newsreader',Georgia,serif;"></textarea>
       <div style="display:flex; gap:12px;">
         <button class="btn btn-primary" id="btnOnboardNext" onclick="submitOnboardAnswer()">Next</button>
         <button class="btn btn-ghost" onclick="skipOnboardQuestion()">Skip</button>
       </div>
-      <div id="onboardLoading" style="display:none; color:var(--text-dim); margin-top:12px;">Thinking...</div>
+      <div id="onboardLoading" style="display:none; color:var(--text-dim); margin-top:12px;">
+        <span style="display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; margin-right:8px;"></span>
+        Thinking...
+      </div>
     </div>
 
     <div id="onboardDone" style="display:none; text-align:center; padding:40px 0;">
-      <div style="font-size:20px; font-weight:600; margin-bottom:12px;">Building your voice profile...</div>
+      <div style="font-family:'Playfair Display',Georgia,serif; font-size:20px; font-weight:700; margin-bottom:12px;">Building your voice profile...</div>
       <div id="onboardDoneMsg" style="color:var(--text-dim);"></div>
     </div>
   </div>
 </div>
 
 <header>
-  <div class="logo">N.40 <span>/ Content Engine</span></div>
+  <div class="logo">N<span class="sq"></span>40 <span>/ Content Engine</span></div>
   <div class="header-right">
     <span id="userName" style="font-size:13px; color:var(--text-dim); margin-right:12px;"></span>
-    <a href="#" id="logoutLink" onclick="doLogout(); return false;" style="font-size:13px; color:var(--text-faint); display:none;">Log out</a>
+    <a href="#" id="profileLink" onclick="showWelcomeScreen(); return false;" style="font-size:12px; font-family:'Oswald',sans-serif; letter-spacing:1px; text-transform:uppercase; color:var(--gold); text-decoration:none; display:none;">Voice Profile</a>
     <div class="status-dot" id="statusDot" title="Disconnected"></div>
     <div class="header-date" id="headerDate"></div>
   </div>
@@ -365,8 +357,8 @@ window.addEventListener('load', function() {
 <div class="section active" id="section-create">
 
   <div style="margin-bottom:32px;">
-    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">What are we teaching today?</h1>
-    <p style="color:var(--text-dim); font-size:15px;">Drop in a topic, a thought, a rant, a framework — whatever you've got. Each question adapts to what you just said. N.40 will coach you toward the strongest possible content.</p>
+    <h1 style="font-family:'Playfair Display',Georgia,serif; font-size:32px; font-weight:700; margin-bottom:8px;">What are we teaching today?</h1>
+    <p style="color:var(--text-dim); font-size:15px; line-height:1.6;">Drop in a topic, a thought, a rant, a framework — whatever you've got. Each question adapts to what you just said. The engine will coach you toward the strongest possible content.</p>
   </div>
 
   <div class="step-indicator" id="steps"></div>
@@ -1103,22 +1095,27 @@ const S = {
 
 const API = window.location.hostname === 'localhost' ? 'http://localhost:5555/api' : '/api';
 
-var authToken = localStorage.getItem('engine_token') || '';
-var currentUser = null;
+function getProfile() {
+  try { return JSON.parse(localStorage.getItem('n40_voice_profile')); } catch(e) { return null; }
+}
+
+function saveProfile(profile) {
+  localStorage.setItem('n40_voice_profile', JSON.stringify(profile));
+}
 
 function safeFetch(url, opts = {}, timeoutMs = 90000) {
   var ctrl = new AbortController();
   var timer = setTimeout(function() { ctrl.abort(); }, timeoutMs);
-  if (authToken) {
-    opts.headers = opts.headers || {};
-    opts.headers['Authorization'] = 'Bearer ' + authToken;
+  if (opts.method === 'POST' && opts.body) {
+    try {
+      var body = JSON.parse(opts.body);
+      var profile = getProfile();
+      if (profile && !body.profile) body.profile = profile;
+      opts.body = JSON.stringify(body);
+    } catch(e) {}
   }
   return fetch(url, Object.assign({}, opts, { signal: ctrl.signal }))
-    .then(function(r) {
-      clearTimeout(timer);
-      if (r.status === 401) { showLoginScreen(); throw new Error('Session expired'); }
-      return r;
-    })
+    .then(function(r) { clearTimeout(timer); return r; })
     .catch(function(e) {
       clearTimeout(timer);
       if (e.name === 'AbortError') throw new Error('Request timed out — tap to retry.');
@@ -1127,106 +1124,50 @@ function safeFetch(url, opts = {}, timeoutMs = 90000) {
 }
 
 // ═══════════════════════════════════
-// AUTH
-// ═══════════════════════════════════
-function showLoginScreen() {
-  document.getElementById('loginScreen').style.display = 'flex';
-}
-function hideLoginScreen() {
-  document.getElementById('loginScreen').style.display = 'none';
-}
-function showRegisterForm() {
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('registerForm').style.display = 'block';
-  var code = new URLSearchParams(window.location.search).get('code');
-  if (code) document.getElementById('regCode').value = code;
-}
-function showLoginForm() {
-  document.getElementById('registerForm').style.display = 'none';
-  document.getElementById('loginForm').style.display = 'block';
-}
-
-async function doLogin() {
-  var email = document.getElementById('loginEmail').value.trim();
-  var pw = document.getElementById('loginPassword').value;
-  if (!email || !pw) return;
-  try {
-    var res = await fetch(API + '/auth/login', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email: email, password: pw})
-    });
-    var data = await res.json();
-    if (data.error) { document.getElementById('loginError').textContent = data.error; return; }
-    authToken = data.token;
-    localStorage.setItem('engine_token', authToken);
-    currentUser = data;
-    onAuthSuccess(data);
-  } catch(e) { document.getElementById('loginError').textContent = 'Connection error.'; }
-}
-
-async function doRegister() {
-  var code = document.getElementById('regCode').value.trim();
-  var pw = document.getElementById('regPassword').value;
-  if (!code || !pw) return;
-  try {
-    var res = await fetch(API + '/auth/register', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({code: code, password: pw})
-    });
-    var data = await res.json();
-    if (data.error) { document.getElementById('regError').textContent = data.error; return; }
-    authToken = data.token;
-    localStorage.setItem('engine_token', authToken);
-    currentUser = data;
-    onAuthSuccess(data);
-  } catch(e) { document.getElementById('regError').textContent = 'Connection error.'; }
-}
-
-async function doLogout() {
-  await safeFetch(API + '/auth/logout', {method: 'POST'}).catch(function(){});
-  authToken = '';
-  localStorage.removeItem('engine_token');
-  currentUser = null;
-  document.getElementById('userName').textContent = '';
-  document.getElementById('logoutLink').style.display = 'none';
-  showLoginScreen();
-}
-
-function onAuthSuccess(data) {
-  hideLoginScreen();
-  document.getElementById('userName').textContent = data.name;
-  document.getElementById('logoutLink').style.display = 'inline';
-  if (!data.onboarded) {
-    startOnboarding();
-  }
-}
-
-async function checkAuth() {
-  if (!authToken) {
-    // Check for invite code in URL
-    var code = new URLSearchParams(window.location.search).get('code');
-    if (code) { showRegisterForm(); }
-    showLoginScreen();
-    return;
-  }
-  try {
-    var res = await fetch(API + '/auth/me', {headers: {'Authorization': 'Bearer ' + authToken}});
-    var data = await res.json();
-    if (!data.logged_in) { showLoginScreen(); return; }
-    currentUser = data;
-    onAuthSuccess(data);
-  } catch(e) { showLoginScreen(); }
-}
-
-// ═══════════════════════════════════
-// ONBOARDING
+// PROFILE + ONBOARDING
 // ═══════════════════════════════════
 var onboardHistory = [];
 var onboardCurrentQ = null;
+var onboardName = '';
 
-function startOnboarding() {
-  document.getElementById('onboardScreen').style.display = 'block';
+function showWelcomeScreen() {
+  onboardHistory = [];
+  onboardCurrentQ = null;
+  document.getElementById('welcomeStart').style.display = 'block';
+  document.getElementById('welcomeQArea').style.display = 'none';
+  document.getElementById('onboardDone').style.display = 'none';
+  var profile = getProfile();
+  if (profile && profile.name) document.getElementById('welcomeName').value = profile.name;
+  document.getElementById('welcomeScreen').style.display = 'flex';
+}
+
+function hideWelcomeScreen() {
+  document.getElementById('welcomeScreen').style.display = 'none';
+}
+
+function beginOnboarding() {
+  onboardName = document.getElementById('welcomeName').value.trim() || 'Writer';
+  document.getElementById('welcomeStart').style.display = 'none';
+  document.getElementById('welcomeQArea').style.display = 'block';
   fetchOnboardQuestion();
+}
+
+function skipOnboarding() {
+  var name = document.getElementById('welcomeName').value.trim() || 'Writer';
+  saveProfile({ name: name });
+  document.getElementById('userName').textContent = name;
+  document.getElementById('profileLink').style.display = 'inline';
+  hideWelcomeScreen();
+}
+
+function checkProfile() {
+  var profile = getProfile();
+  if (profile) {
+    document.getElementById('userName').textContent = profile.name || '';
+    document.getElementById('profileLink').style.display = 'inline';
+  } else {
+    showWelcomeScreen();
+  }
 }
 
 async function fetchOnboardQuestion() {
@@ -1247,6 +1188,7 @@ async function fetchOnboardQuestion() {
     document.getElementById('onboardQHint').textContent = data.hint || '';
     document.getElementById('onboardAnswer').value = '';
   } catch(e) {
+    onboardCurrentQ = { label: 'Retry', question: 'Connection issue', hint: '' };
     document.getElementById('onboardQHint').textContent = e.message + ' Tap Next to retry.';
   } finally {
     document.getElementById('onboardLoading').style.display = 'none';
@@ -1268,21 +1210,24 @@ async function skipOnboardQuestion() {
 }
 
 async function completeOnboarding() {
-  document.getElementById('onboardQArea').style.display = 'none';
+  document.getElementById('welcomeQArea').style.display = 'none';
   document.getElementById('onboardDone').style.display = 'block';
   document.getElementById('onboardDoneMsg').textContent = 'Analyzing your voice...';
   try {
     var res = await safeFetch(API + '/onboard/complete', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({history: onboardHistory})
+      body: JSON.stringify({history: onboardHistory, name: onboardName})
     }, 120000);
     var text = await res.text();
     var data = JSON.parse(text.trim());
     if (data.error) { document.getElementById('onboardDoneMsg').textContent = 'Error: ' + data.error; return; }
+    var profile = data.profile || {};
+    profile.name = onboardName;
+    saveProfile(profile);
     document.getElementById('onboardDoneMsg').textContent = data.summary || 'Voice profile created.';
-    setTimeout(function() {
-      document.getElementById('onboardScreen').style.display = 'none';
-    }, 3000);
+    document.getElementById('userName').textContent = onboardName;
+    document.getElementById('profileLink').style.display = 'inline';
+    setTimeout(function() { hideWelcomeScreen(); }, 3000);
   } catch(e) {
     document.getElementById('onboardDoneMsg').textContent = 'Error: ' + e.message;
   }
@@ -1293,7 +1238,7 @@ async function completeOnboarding() {
 // ═══════════════════════════════════
 document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 updateStepDots();
-checkAuth();
+checkProfile();
 
 // Check server connection
 safeFetch(API + '/stats').then(function() {

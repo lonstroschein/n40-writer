@@ -1,0 +1,127 @@
+/* ============================================================================
+   N.40 BRAND KIT  —  v1  (Normal 40 + Next 40, abbreviated N.40)
+   Drop this one file into any web project and the N.40 look comes with it:
+   colors, fonts, the orange-square logo, section headers, and accents.
+
+   USE:  <link rel="stylesheet" href="n40-brand.css">   (loads its own fonts)
+   Then use the classes + HTML snippets documented in N40-BRAND.md.
+   Everything is driven by the CSS variables below — change a token once, it
+   updates everywhere.
+   ============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+  /* ── Neutrals (the base — black / gray / warm white) ── */
+  --paper:#F7F6F2;        /* warm off-white page */
+  --paper-box:#EFEDE6;    /* slightly darker panel on paper */
+  --ink:#16170F;          /* near-black body text (high contrast) */
+  --mid:#101109;          /* midnight — dark sections / cover */
+  --deep:#0A0B07;         /* deepest black */
+  --mid2:#17180F;
+  --panel:#20211A;        /* dark callout box */
+  --line:#33342B;         /* hairline on dark */
+  --line-light:#DDD9CF;   /* hairline on paper */
+  --paper-on-dark:#F4F2EC;/* text on dark */
+  --muted-dark:#CFC9BC;   /* body text on dark */
+  --taupe:#766153;        /* warm neutral caption */
+  --slate:#A9B4C2;        /* cool neutral caption */
+
+  /* ── Accents ── blue does the wayfinding, orange is the one warm note ── */
+  --blue:#4059AD;         /* primary accent: labels, rules, mark, CTA */
+  --blue-light:#7C90E0;   /* blue on dark backgrounds */
+  --orange:#FF914D;       /* sparing warm accent: the square, pull-quotes, title rules */
+
+  /* ── Type ── */
+  --display:'Oswald','Arial Narrow',sans-serif;  /* logo, banners, headers (compressed gothic ≈ Tablet Gothic Compressed) */
+  --title:'Playfair Display',Georgia,serif;      /* editorial headlines */
+  --body:'Newsreader',Georgia,serif;             /* reading text */
+}
+
+/* ============================================================================
+   THE N.40 MARK  —  the period is ALWAYS an orange square on the baseline.
+   Mark HTML:      <span class="n40">N<span class="sq"></span>40</span>
+   Wordmark HTML:  <div class="n40-wordmark">NORMAL<span class="sq"></span>40</div>
+   Tagline HTML:   <div class="n40-tagline">The Magazine For Your Next<span class="sq"></span>40 Years.</div>
+   ============================================================================ */
+.n40 { font-family: var(--display); font-weight: 700; letter-spacing: 0.5px; }
+
+/* Global square — tuned for the mark (no letter-spacing). Sits ON the baseline. */
+.sq {
+  display: inline-block;
+  width: 0.20em; height: 0.20em;
+  background: var(--orange);
+  margin: 0 0.06em;
+  vertical-align: baseline;
+}
+
+/* Wordmark: NORMAL.40 across the top, one line, never wraps. */
+.n40-wordmark {
+  font-family: var(--display); font-weight: 700;
+  font-size: 44px; letter-spacing: 5px; text-transform: uppercase;
+  white-space: nowrap; color: var(--paper-on-dark);
+}
+/* Oswald's "4" has almost no left bearing, so at this size the square needs extra room on
+   its right to sit centered between the letter and the 4. (Spacing is size-dependent — retune
+   if you change the wordmark font-size.) */
+.n40-wordmark .sq { margin: 0 0.16em 0 0.05em; }
+
+.n40-tagline {
+  font-family: var(--display); font-weight: 500;
+  font-size: 15px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--slate);
+}
+.n40-tagline .sq { margin: 0 0.16em 0 0.04em; }
+
+/* ============================================================================
+   SECTION HEADER  —  makes leaving one section for the next UNMISTAKABLE.
+   HTML:
+   <div class="n40-break">                     (add class "on-dark" over dark bg)
+     <div class="rule"></div>
+     <div class="inner">
+       <div class="mark"><span class="n40">N<span class="sq"></span>40</span></div>
+       <div class="seq">SECTION 2 OF 6</div>   (optional counter)
+       <div class="name">REAL STORIES</div>
+     </div>
+   </div>
+   ============================================================================ */
+.n40-break { max-width: 640px; margin: 0 auto; padding-top: 4px; }
+.n40-break .rule { border-top: 1px solid var(--line-light); }
+.n40-break .inner { text-align: center; padding: 40px 0 26px; }
+.n40-break .mark { font-size: 21px; letter-spacing: 1px; color: var(--ink); margin: 0 auto 16px; }
+.n40-break .seq  { font-family: var(--display); font-weight: 500; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--taupe); margin-bottom: 12px; }
+.n40-break .name { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: 3px; text-transform: uppercase; color: var(--blue); }
+.n40-break.on-dark .rule { border-top-color: rgba(255,255,255,0.14); }
+.n40-break.on-dark .seq  { color: var(--slate); }
+.n40-break.on-dark .mark { color: var(--paper-on-dark); }
+.n40-break.on-dark .name { color: var(--blue-light); }
+@media (max-width: 768px) {
+  .n40-break .name { font-size: 21px; letter-spacing: 2px; }
+  .n40-wordmark { font-size: 30px; letter-spacing: 3px; }
+}
+
+/* ============================================================================
+   TYPE + ACCENTS
+   ============================================================================ */
+.n40-body { font-family: var(--body); font-size: 16.5px; line-height: 1.72; color: var(--ink); }
+.n40-body p { margin-bottom: 17px; }
+
+/* Editorial headline with a short orange underline. */
+.n40-title { font-family: var(--title); font-weight: 700; font-size: 30px; line-height: 1.15; color: var(--ink); margin-bottom: 20px; }
+.n40-title::after { content: ''; display: block; width: 42px; height: 3px; background: var(--orange); margin-top: 16px; }
+
+/* Section label (small blue banner text). */
+.n40-label { font-family: var(--display); font-weight: 700; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; color: var(--blue); }
+
+/* The ONE emotional pull-quote — orange border, high-contrast text. */
+.n40-pullquote { background: var(--paper-box); padding: 26px 30px; margin: 30px 0; border-left: 4px solid var(--orange);
+  font-family: var(--body); font-size: 23px; font-style: italic; line-height: 1.5; color: var(--ink); }
+.n40-inlinequote { font-family: var(--body); font-style: italic; font-size: 20px; line-height: 1.5; color: inherit; border-left: 4px solid var(--orange); padding-left: 20px; margin: 24px 0; }
+
+/* Blue-bordered question / prompt box. */
+.n40-question { background: var(--paper-box); padding: 24px 28px; border-radius: 4px; border-left: 4px solid var(--blue);
+  font-family: var(--body); font-size: 21px; font-style: italic; color: var(--ink); }
+
+/* Blue call-to-action button. */
+.n40-cta { background: var(--blue); color: #fff; padding: 20px 24px; border-radius: 4px; text-align: center; }
+.n40-cta a { color: #fff; font-weight: 600; }
