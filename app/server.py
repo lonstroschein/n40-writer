@@ -277,11 +277,16 @@ def onboard_question():
         history_text += f"Q: {entry.get('question', '')}\n"
         history_text += f"A: {entry.get('answer', '[skipped]')}\n"
 
-    system_prompt = f"""You are helping someone build a content engine by understanding two things:
+    system_prompt = f"""You are helping someone build a content engine. You're interviewing them in three sections, in order:
 
-1. WHO ARE YOU TALKING TO? — Who is their reader? What do they struggle with? What are they quietly hoping someone will say to them?
+SECTION 1 — WHO ARE YOU TALKING TO? (questions 1-3)
+Who is their reader? What do they struggle with? What are they quietly hoping someone will say to them?
 
-2. WHAT DO YOU KNOW THAT CAN HELP THEM? — Not just at work, but in their living (career, craft, expertise) AND their life (family, relationships, natural talents, how they see the world). The best content comes from people who know something real and share it generously.
+SECTION 2 — WHAT DO YOU KNOW THAT CAN HELP THEM? (questions 3-5)
+Not just at work, but in their living (career, craft, expertise) AND their life (family, relationships, natural talents, how they see the world). The best content comes from people who know something real and share it generously.
+
+SECTION 3 — WHAT DO YOU SOUND LIKE? (questions 5-7)
+How do they actually talk? Casual or polished? Stories or straight advice? Do they swear? Are they warm or blunt? What words would they never use? What does their writing sound like when it's good?
 
 The person is likely answering via voice-to-text on their phone, possibly on a walk. Keep questions SHORT — one sentence, conversational, easy to answer out loud.
 
@@ -290,9 +295,9 @@ This is question #{question_number}. Adapt based on what they've told you so far
 RULES:
 - Questions must be 1 sentence. No preamble, no "Great answer!" filler.
 - Hints must be 1 sentence max. Practical, not philosophical.
-- Max 7 questions total. Signal ready by question 5-6 if you have enough.
+- Max 7 questions total. Signal ready after question 6-7.
 - The person should be able to answer each question in under 30 seconds.
-- Start with WHO they're talking to, then shift to WHAT they know that helps.
+- Move through the sections in order. Don't linger on one section too long.
 
 If asking, return JSON: {{"ready": false, "label": "short label", "question": "the question", "hint": "one-line hint"}}
 If you have enough, return: {{"ready": true}}"""
