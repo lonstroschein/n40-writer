@@ -18,6 +18,14 @@ app = Flask(__name__, static_folder=None)
 ADMIN_KEY = os.environ.get('ADMIN_KEY', '')
 
 
+def extract_text(msg):
+    """Pull the text content from a Claude response, skipping thinking blocks."""
+    for block in msg.content:
+        if hasattr(block, 'text'):
+            return block.text.strip()
+    return ''
+
+
 def is_admin():
     key = request.headers.get('X-Admin-Key', '')
     return bool(ADMIN_KEY and key == ADMIN_KEY)
@@ -295,7 +303,7 @@ Max 10 questions."""
             system=system_prompt,
             messages=[{'role': 'user', 'content': f'Interview so far:\n{history_text if history_text else "(First question)"}'}]
         )
-        raw = msg.content[0].text.strip()
+        raw = extract_text(msg)
         if raw.startswith('```'):
             raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         try:
@@ -351,7 +359,7 @@ Return ONLY valid JSON:
 }""",
             messages=[{'role': 'user', 'content': f'Writer: {writer_name}\n\nFull voice interview:\n{interview_text}'}]
         )
-        raw = msg.content[0].text.strip()
+        raw = extract_text(msg)
         if raw.startswith('```'):
             raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         profile = json.loads(raw)
@@ -485,7 +493,7 @@ NEVER ask more than 6 questions total. By question 5-6, if you don't have enough
             system=system_prompt,
             messages=[{'role': 'user', 'content': user_content}]
         )
-        raw = msg.content[0].text.strip()
+        raw = extract_text(msg)
         if raw.startswith('```'):
             raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         try:
@@ -606,7 +614,7 @@ No markdown fences. No explanation. Just the JSON."""
             model='claude-sonnet-5', max_tokens=6000,
             system=system_prompt, messages=[{'role': 'user', 'content': user_msg}]
         )
-        text = msg.content[0].text.strip()
+        text = extract_text(msg)
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         return json.loads(text)
@@ -684,7 +692,7 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
             model='claude-sonnet-5', max_tokens=6000,
             system=system_prompt, messages=[{'role': 'user', 'content': user_content}]
         )
-        text = msg.content[0].text.strip()
+        text = extract_text(msg)
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         return json.loads(text)
@@ -795,7 +803,7 @@ Return ONLY valid JSON:
 No markdown fences. No explanation. Just the JSON.""",
         messages=[{'role': 'user', 'content': f'Post to improve:\n\n{original}'}]
     )
-        text = msg.content[0].text.strip()
+        text = extract_text(msg)
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         return json.loads(text)
@@ -850,7 +858,7 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
             model='claude-sonnet-5', max_tokens=max_tok,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
-        text = msg.content[0].text.strip()
+        text = extract_text(msg)
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         return json.loads(text)
@@ -972,7 +980,7 @@ Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, re
             model='claude-sonnet-5', max_tokens=2000,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
-        return {'note': msg.content[0].text.strip()}
+        return {'note': extract_text(msg)}
 
     return stream_claude_call(do_call)
 
@@ -1015,7 +1023,7 @@ Return ONLY the refined note text. No JSON. No quotes. No explanation."""
             model='claude-sonnet-5', max_tokens=2000,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
-        return {'note': msg.content[0].text.strip()}
+        return {'note': extract_text(msg)}
 
     return stream_claude_call(do_call)
 
@@ -1152,7 +1160,7 @@ No markdown fences. No explanation. Just the JSON.""",
             'content': f'Chapter {chapter_num}: {chapter["title"]}\nLens: {lens}{angle_line}'
         }]
     )
-        text = msg.content[0].text.strip()
+        text = extract_text(msg)
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         return json.loads(text)
@@ -1261,7 +1269,7 @@ Return ONLY valid JSON:
 No markdown fences. No explanation. Just the JSON.""",
         messages=[{'role': 'user', 'content': f'Original post ({original_date}):\n\n{original}'}]
     )
-        text = msg.content[0].text.strip()
+        text = extract_text(msg)
         if text.startswith('```'):
             text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
         return json.loads(text)
