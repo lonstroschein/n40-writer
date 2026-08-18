@@ -24,28 +24,29 @@ window.addEventListener('load', function() {
 });
 </script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@400;500&display=swap');
 
   * { margin:0; padding:0; box-sizing:border-box; }
 
   :root {
-    --bg: #080810;
-    --bg-card: #0E0E1A;
-    --bg-input: #141422;
-    --gold: #D4A040;
-    --gold-light: #EDD070;
-    --gold-dim: #B09040;
-    --text: #F5EEE2;
-    --text-dim: #C8BCA8;
-    --text-faint: #7A7260;
-    --border: rgba(212,160,64,0.2);
-    --border-active: rgba(212,160,64,0.5);
+    --bg: #F7F6F2;
+    --bg-card: #EFEDE6;
+    --bg-input: #FFFFFF;
+    --gold: #4059AD;
+    --gold-light: #7C90E0;
+    --gold-dim: #4059AD;
+    --text: #16170F;
+    --text-dim: #766153;
+    --text-faint: #A9B4C2;
+    --border: rgba(64,89,173,0.18);
+    --border-active: rgba(64,89,173,0.45);
     --danger: #E05050;
     --success: #50C878;
+    --orange: #FF914D;
   }
 
   body {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Newsreader', Georgia, serif;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
@@ -60,10 +61,11 @@ window.addEventListener('load', function() {
     padding: 24px 48px;
     border-bottom: 1px solid var(--border);
   }
-  .logo { font-family: 'DM Mono', monospace; font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); }
-  .logo span { color: var(--text-dim); font-weight: 300; }
+  .logo { font-family: 'Oswald', 'Arial Narrow', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 1px; color: var(--text); }
+  .logo span { color: var(--text-dim); font-weight: 400; font-size: 14px; letter-spacing: 2px; }
+  .logo .sq { display:inline-block; width:0.20em; height:0.20em; background:var(--orange); margin:0 0.06em; vertical-align:baseline; }
   .header-right { display:flex; align-items:center; gap:20px; }
-  .header-date { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text-faint); }
+  .header-date { font-family: 'Oswald', sans-serif; font-size: 12px; font-weight:500; letter-spacing:1px; color: var(--text-faint); text-transform:uppercase; }
   .status-dot { width:8px; height:8px; border-radius:50%; background:var(--danger); }
   .status-dot.connected { background:var(--success); }
 
@@ -73,7 +75,8 @@ window.addEventListener('load', function() {
   }
   nav button {
     background:none; border:none; padding:16px 28px; color:var(--text-dim);
-    font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500;
+    font-family:'Oswald','Arial Narrow',sans-serif; font-size:13px; font-weight:600;
+    letter-spacing:1.5px; text-transform:uppercase;
     cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s;
   }
   nav button:hover { color:var(--text); }
@@ -86,13 +89,13 @@ window.addEventListener('load', function() {
   /* ─── CARDS & LAYOUT ─── */
   .card {
     background:var(--bg-card); border:1px solid var(--border);
-    border-radius:12px; padding:36px; margin-bottom:24px;
+    border-radius:4px; padding:36px; margin-bottom:24px;
   }
   .card h2 {
-    font-size:13px; font-family:'DM Mono',monospace; color:var(--gold);
-    text-transform:uppercase; letter-spacing:2px; margin-bottom:8px;
+    font-size:12px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:700; color:var(--gold);
+    text-transform:uppercase; letter-spacing:3px; margin-bottom:8px;
   }
-  .card .question { font-size:22px; font-weight:500; line-height:1.5; margin-bottom:8px; }
+  .card .question { font-family:'Playfair Display',Georgia,serif; font-size:22px; font-weight:700; line-height:1.4; margin-bottom:8px; }
   .card .hint {
     font-size:14px; color:var(--text-faint); line-height:1.6;
     margin-bottom:24px; font-style:italic;
@@ -100,8 +103,8 @@ window.addEventListener('load', function() {
 
   textarea, input[type="text"] {
     width:100%; background:var(--bg-input); border:1px solid var(--border);
-    border-radius:8px; padding:16px 20px; color:var(--text);
-    font-family:'DM Sans',sans-serif; font-size:16px; line-height:1.6;
+    border-radius:4px; padding:16px 20px; color:var(--text);
+    font-family:'Newsreader',Georgia,serif; font-size:16px; line-height:1.6;
     resize:vertical; transition:border-color 0.2s;
   }
   textarea:focus, input[type="text"]:focus { outline:none; border-color:var(--border-active); }
@@ -111,10 +114,11 @@ window.addEventListener('load', function() {
 
   .btn-row { display:flex; gap:12px; margin-top:24px; justify-content:flex-end; }
   .btn {
-    padding:12px 32px; border-radius:8px; font-family:'DM Sans',sans-serif;
-    font-size:14px; font-weight:600; cursor:pointer; border:none; transition:all 0.2s;
+    padding:12px 32px; border-radius:4px; font-family:'Oswald','Arial Narrow',sans-serif;
+    font-size:14px; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+    cursor:pointer; border:none; transition:all 0.2s;
   }
-  .btn-primary { background:var(--gold); color:var(--bg); }
+  .btn-primary { background:var(--gold); color:#fff; }
   .btn-primary:hover { background:var(--gold-light); }
   .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
   .btn-secondary { background:transparent; color:var(--text-dim); border:1px solid var(--border); }
@@ -142,23 +146,23 @@ window.addEventListener('load', function() {
   .two-col { display:grid; grid-template-columns:1fr 360px; gap:32px; }
   .sidebar { position:sticky; top:40px; align-self:start; }
   .sidebar h3 {
-    font-size:13px; font-family:'DM Mono',monospace; color:var(--text-faint);
-    text-transform:uppercase; letter-spacing:2px; margin-bottom:16px;
+    font-size:12px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:700; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:3px; margin-bottom:16px;
   }
   .answer-item {
-    background:var(--bg-input); border-radius:8px; padding:16px;
-    margin-bottom:12px; border-left:3px solid var(--gold-dim);
+    background:var(--bg-input); border-radius:4px; padding:16px;
+    margin-bottom:12px; border-left:3px solid var(--orange);
   }
   .answer-item .label {
-    font-size:11px; font-family:'DM Mono',monospace; color:var(--gold-dim);
-    text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
+    font-size:11px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; color:var(--gold-dim);
+    text-transform:uppercase; letter-spacing:2px; margin-bottom:6px;
   }
   .answer-item .text { font-size:14px; color:var(--text-dim); line-height:1.5; max-height:80px; overflow:hidden; }
 
   /* ─── TEMPLATE GRID ─── */
   .template-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-top:24px; }
   .template-card {
-    background:var(--bg-card); border:2px solid var(--border); border-radius:12px;
+    background:var(--bg-card); border:2px solid var(--border); border-radius:4px;
     padding:28px; cursor:pointer; transition:all 0.2s;
   }
   .template-card:hover { border-color:var(--border-active); transform:translateY(-2px); }
@@ -166,8 +170,8 @@ window.addEventListener('load', function() {
   .template-card h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
   .template-card p { font-size:13px; color:var(--text-dim); line-height:1.5; }
   .template-card .t-best {
-    margin-top:12px; font-size:11px; font-family:'DM Mono',monospace;
-    color:var(--gold-dim); text-transform:uppercase; letter-spacing:1px;
+    margin-top:12px; font-size:11px; font-family:'Oswald','Arial Narrow',sans-serif;
+    font-weight:600; color:var(--gold-dim); text-transform:uppercase; letter-spacing:2px;
   }
 
   /* ─── PREVIEW ─── */
@@ -184,8 +188,8 @@ window.addEventListener('load', function() {
   /* ─── POST TEXT ─── */
   .post-box { margin-top:32px; }
   .post-box h3 {
-    font-size:13px; font-family:'DM Mono',monospace; color:var(--gold);
-    text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;
+    font-size:12px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:700; color:var(--gold);
+    text-transform:uppercase; letter-spacing:3px; margin-bottom:4px;
   }
   .char-count { font-family:'DM Mono',monospace; font-size:12px; color:var(--text-faint); margin-bottom:12px; }
   .char-count.warning { color:var(--danger); }
@@ -199,24 +203,22 @@ window.addEventListener('load', function() {
   .refine-bar input { flex:1; font-size:15px; }
   .refine-bar .btn { white-space:nowrap; }
 
-  /* ─── ANALYTICS ─── */
-  .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:32px; }
   .stat-card {
     background:var(--bg-card); border:1px solid var(--border);
     border-radius:12px; padding:24px; text-align:center;
   }
   .stat-card .val { font-size:36px; font-weight:700; color:var(--gold); }
   .stat-card .lbl {
-    font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);
-    text-transform:uppercase; letter-spacing:1px; margin-top:4px;
+    font-size:11px; font-family:'Oswald','Arial Narrow',sans-serif; font-weight:600; color:var(--text-faint);
+    text-transform:uppercase; letter-spacing:2px; margin-top:4px;
   }
   table {
     width:100%; border-collapse:collapse; background:var(--bg-card);
     border-radius:12px; overflow:hidden; border:1px solid var(--border);
   }
   th {
-    text-align:left; padding:16px 20px; font-size:11px; font-family:'DM Mono',monospace;
-    color:var(--text-faint); text-transform:uppercase; letter-spacing:1.5px;
+    text-align:left; padding:16px 20px; font-size:11px; font-family:'Oswald','Arial Narrow',sans-serif;
+    font-weight:600; color:var(--text-faint); text-transform:uppercase; letter-spacing:2px;
     border-bottom:1px solid var(--border); background:var(--bg-input);
   }
   td {
@@ -275,7 +277,6 @@ window.addEventListener('load', function() {
     header, nav, main { padding-left:16px; padding-right:16px; }
     main { padding-top:20px; padding-bottom:300px; }
     .template-grid { grid-template-columns:1fr; }
-    .stats-grid { grid-template-columns:repeat(2,1fr); }
     nav { gap:6px; flex-wrap:wrap; }
     nav button { font-size:13px; padding:10px 14px; min-height:44px; }
     .btn { min-height:48px; font-size:16px; padding:14px 24px; }
@@ -291,20 +292,47 @@ window.addEventListener('load', function() {
 </head>
 <body>
 
-<!-- ═══ KEY GATE ═══ -->
-<div id="keyScreen" style="display:none; position:fixed; inset:0; z-index:9999; background:var(--bg); align-items:center; justify-content:center;">
-  <div style="max-width:360px; width:90%; padding:40px;">
-    <div style="font-size:28px; font-weight:700; margin-bottom:8px;">N.40 <span style="font-weight:400; color:var(--text-dim);">/ Content Engine</span></div>
-    <p style="color:var(--text-dim); margin-bottom:24px;">Enter your admin key.</p>
-    <input type="password" id="adminKeyInput" placeholder="Admin key" style="width:100%; margin-bottom:16px; padding:14px; font-size:16px; border-radius:8px; border:1px solid var(--border); background:var(--bg-card); color:var(--text);" onkeydown="if(event.key==='Enter')submitKey()">
-    <button class="btn btn-primary" onclick="submitKey()" style="width:100%;">Enter</button>
-    <div id="keyError" style="color:#FF914D; text-align:center; margin-top:12px; font-size:14px;"></div>
+<!-- ═══ WELCOME SCREEN ═══ -->
+<div id="welcomeScreen" style="display:none; position:fixed; inset:0; z-index:9999; background:var(--bg); align-items:center; justify-content:center;">
+  <div style="max-width:480px; width:90%; padding:40px;">
+    <div style="text-align:center; margin-bottom:32px;">
+      <div style="font-family:'Oswald','Arial Narrow',sans-serif; font-size:32px; font-weight:700; letter-spacing:1px; margin-bottom:4px;">N<span style="display:inline-block; width:0.20em; height:0.20em; background:#FF914D; margin:0 0.06em; vertical-align:baseline;"></span>40 <span style="font-weight:400; font-size:20px; color:var(--text-dim); letter-spacing:2px;">CONTENT ENGINE</span></div>
+      <div style="width:42px; height:3px; background:var(--orange); margin:16px auto;"></div>
+      <p style="font-family:'Newsreader',Georgia,serif; color:var(--text-dim); font-size:16px; line-height:1.6;">Write LinkedIn posts, Substack articles, and branded visuals — all in your voice.</p>
+    </div>
+
+    <div id="welcomeStart">
+      <input type="text" id="welcomeName" placeholder="Your name" style="width:100%; margin-bottom:16px; padding:14px; font-size:16px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;">
+      <button class="btn btn-primary" onclick="beginOnboarding()" style="width:100%; margin-bottom:12px;">Build My Voice Profile</button>
+    </div>
+
+    <div id="welcomeQArea" style="display:none;">
+      <div id="onboardQLabel" style="font-family:'Oswald','Arial Narrow',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:3px; color:var(--gold); margin-bottom:8px;"></div>
+      <div id="onboardQText" style="font-family:'Playfair Display',Georgia,serif; font-size:20px; font-weight:700; line-height:1.4; margin-bottom:8px;"></div>
+      <div id="onboardQHint" style="font-size:14px; color:var(--text-dim); font-style:italic; margin-bottom:16px;"></div>
+      <textarea id="onboardAnswer" rows="5" placeholder="Speak naturally..." style="width:100%; font-size:16px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); margin-bottom:16px; font-family:'Newsreader',Georgia,serif;"></textarea>
+      <div style="display:flex; gap:12px;">
+        <button class="btn btn-primary" id="btnOnboardNext" onclick="submitOnboardAnswer()">Next</button>
+        <button class="btn btn-ghost" onclick="skipOnboardQuestion()">Skip</button>
+      </div>
+      <div id="onboardLoading" style="display:none; color:var(--text-dim); margin-top:12px;">
+        <span style="display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; margin-right:8px;"></span>
+        Thinking...
+      </div>
+    </div>
+
+    <div id="onboardDone" style="display:none; text-align:center; padding:40px 0;">
+      <div style="font-family:'Playfair Display',Georgia,serif; font-size:20px; font-weight:700; margin-bottom:12px;">Building your voice profile...</div>
+      <div id="onboardDoneMsg" style="color:var(--text-dim);"></div>
+    </div>
   </div>
 </div>
 
 <header>
-  <div class="logo">N.40 <span>/ Content Engine</span></div>
+  <div class="logo">N<span class="sq"></span>40 <span>/ Content Engine</span></div>
   <div class="header-right">
+    <span id="userName" style="font-size:13px; color:var(--text-dim); margin-right:12px;"></span>
+    <a href="#" id="profileLink" onclick="showWelcomeScreen(); return false;" style="font-size:12px; font-family:'Oswald',sans-serif; letter-spacing:1px; text-transform:uppercase; color:var(--gold); text-decoration:none; display:none;">Voice Profile</a>
     <div class="status-dot" id="statusDot" title="Disconnected"></div>
     <div class="header-date" id="headerDate"></div>
   </div>
@@ -313,10 +341,7 @@ window.addEventListener('load', function() {
 <nav>
   <button class="active" onclick="showSection('create', this)">Create</button>
   <button onclick="showSection('notes', this)">Notes</button>
-  <button onclick="showSection('trade', this)">The Trade</button>
   <button onclick="showSection('recycle', this)">Recycle</button>
-  <button onclick="showSection('vault', this)">Vault</button>
-  <button onclick="showSection('analytics', this)">Analytics</button>
 </nav>
 
 <main>
@@ -325,8 +350,8 @@ window.addEventListener('load', function() {
 <div class="section active" id="section-create">
 
   <div style="margin-bottom:32px;">
-    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">What are we teaching today?</h1>
-    <p style="color:var(--text-dim); font-size:15px;">Drop in a topic, a thought, a rant, a framework — whatever you've got. Each question adapts to what you just said. N.40 will coach you toward the strongest possible content.</p>
+    <h1 style="font-family:'Playfair Display',Georgia,serif; font-size:32px; font-weight:700; margin-bottom:8px;">What are we teaching today?</h1>
+    <p style="color:var(--text-dim); font-size:15px; line-height:1.6;">Drop in a topic, a thought, a rant, a framework — whatever you've got. Each question adapts to what you just said. The engine will coach you toward the strongest possible content.</p>
   </div>
 
   <div class="step-indicator" id="steps"></div>
@@ -603,162 +628,6 @@ window.addEventListener('load', function() {
 
 </div>
 
-<!-- ═══════════ THE TRADE ═══════════ -->
-<div class="section" id="section-trade">
-
-  <div style="margin-bottom:32px;">
-    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">The Trade</h1>
-    <p style="color:var(--text-dim); font-size:15px;">Pick a chapter. Pick a lens. Teach from the book that started it all — in your voice, with the people it's impacted.</p>
-  </div>
-
-  <!-- Step 1: Choose chapter -->
-  <div id="trade-step-1">
-    <div class="card" style="padding:24px 36px;">
-      <h2>Chapter</h2>
-      <div class="hint" style="margin-bottom:16px;">Which part of The Trade are we teaching from?</div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;" id="tradeChapterGrid">
-        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(1, this)" data-ch="1">
-          <h3 style="font-size:15px;">1 — The Awakening</h3>
-          <p style="font-size:12px;">"Is This All There Is?" — when restlessness becomes undeniable</p>
-        </div>
-        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(2, this)" data-ch="2">
-          <h3 style="font-size:15px;">2 — I Guess That Makes Two of Us</h3>
-          <p style="font-size:12px;">The first real trade — when chasing who you're becoming hurts people you love</p>
-        </div>
-        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(3, this)" data-ch="3">
-          <h3 style="font-size:15px;">3 — Maybe My Work Here Is Done</h3>
-          <p style="font-size:12px;">Explore → Invest → Test → Trade — the 4 Phases of Massive Action</p>
-        </div>
-        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(4, this)" data-ch="4">
-          <h3 style="font-size:15px;">4 — The Clock</h3>
-          <p style="font-size:12px;">The Normal 40 Clock — halftime is now, and the second half won't play itself</p>
-        </div>
-        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(5, this)" data-ch="5">
-          <h3 style="font-size:15px;">5 — The Brutal Reality of You</h3>
-          <p style="font-size:12px;">The cost of silence + the other side of the marriage</p>
-        </div>
-        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(6, this)" data-ch="6">
-          <h3 style="font-size:15px;">6 — The Box</h3>
-          <p style="font-size:12px;">The prison you celebrated + the 5 D's + the choice to Decide</p>
-        </div>
-        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(7, this)" data-ch="7">
-          <h3 style="font-size:15px;">7 — The Action & The Financials</h3>
-          <p style="font-size:12px;">Movement and money — how to test, fund, and make the trade</p>
-        </div>
-        <div class="template-card" style="padding:20px;" onclick="pickTradeChapter(8, this)" data-ch="8">
-          <h3 style="font-size:15px;">8 — The Trade of a Lifetime</h3>
-          <p style="font-size:12px;">Legacy, mortality, courage — "Your final line is still unwritten"</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="padding:24px 36px;">
-      <h2>Lens</h2>
-      <div class="hint" style="margin-bottom:16px;">How do you want to teach this?</div>
-      <div class="option-pills">
-        <button class="pill active" onclick="setTradeLens('framework',this)">Framework</button>
-        <button class="pill" onclick="setTradeLens('story',this)">Story</button>
-        <button class="pill" onclick="setTradeLens('confession',this)">Confession</button>
-        <button class="pill" onclick="setTradeLens('reframe',this)">Reframe</button>
-        <button class="pill" onclick="setTradeLens('challenge',this)">Challenge</button>
-      </div>
-    </div>
-
-    <div class="card" style="padding:24px 36px;">
-      <h2>Your Angle</h2>
-      <div class="hint" style="margin-bottom:8px;">What's the specific thing you want to say about this chapter? A memory, a person, something you'd tell someone across a table. Or leave blank and let the engine pull the strongest teaching from the chapter.</div>
-      <textarea id="tradeAngle" rows="3" placeholder="Optional — e.g., 'I was thinking about Tim today and how he didn't wait for permission...' or 'The clock diagram hits different after 50...'"></textarea>
-    </div>
-
-    <!-- Photo section (placeholder for impact photos) -->
-    <div class="card" style="padding:24px 36px;">
-      <h2>Impact Photo</h2>
-      <div class="hint" style="margin-bottom:16px;">Pick a photo of someone impacted by The Trade for the branded image. (Connect your photo folder to add more.)</div>
-      <div id="tradePhotoGrid" class="photo-grid" style="grid-template-columns:repeat(3,1fr);">
-        <div class="photo-option selected" onclick="pickTradePhoto('bg-field.png',this)" style="aspect-ratio:auto; height:120px;">
-          <img src="images/bg-field.png" alt="Field" style="width:100%;height:100%;object-fit:cover;">
-          <div class="photo-label">N.40 Ranch</div>
-        </div>
-        <div class="photo-option" onclick="pickTradePhoto('bg-ranch.png',this)" style="aspect-ratio:auto; height:120px;">
-          <img src="images/bg-ranch.png" alt="Ranch" style="width:100%;height:100%;object-fit:cover;">
-          <div class="photo-label">Ranch Wide</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="loading" id="loadingTrade">
-      <div class="spinner"></div>
-      <span>Building from The Trade...</span>
-    </div>
-    <div class="btn-row">
-      <button class="btn btn-primary" id="btnTrade" onclick="generateTrade()">Build It</button>
-    </div>
-  </div>
-
-  <!-- Step 2: Output -->
-  <div id="trade-step-2" style="display:none;">
-
-    <!-- Image preview -->
-    <div id="tradeImageSection" style="margin-bottom:32px;">
-      <h3 style="font-size:13px; font-family:'DM Mono',monospace; color:var(--gold); text-transform:uppercase; letter-spacing:2px; margin-bottom:16px;">Branded Image</h3>
-      <div class="recycle-preview-row">
-        <div class="preview-frame" id="tradePreviewFrame"></div>
-        <div>
-          <p style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:16px;">Preview at 50%.</p>
-          <div class="btn-row" style="justify-content:flex-start;">
-            <button class="btn btn-secondary" onclick="downloadTradePDF()">Download PDF</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- LinkedIn post -->
-    <div class="post-box">
-      <h3>LinkedIn Post</h3>
-      <div class="char-count" id="tradeCharCount">0 / 1,500</div>
-      <textarea id="tradePostText" rows="14" oninput="countTradeChars()"></textarea>
-      <div class="refine-bar">
-        <input type="text" id="refineTradePost" placeholder="Refine LinkedIn post..." onkeydown="if(event.key==='Enter')refineTradeContent('post')">
-        <button class="btn btn-primary" onclick="refineTradeContent('post')">Refine Post</button>
-      </div>
-      <div class="loading" id="loadingRefineTradePost">
-        <div class="spinner"></div>
-        <span>Refining post...</span>
-      </div>
-    </div>
-
-    <!-- Substack -->
-    <div class="post-box" style="margin-top:32px;">
-      <h3>Substack Article</h3>
-      <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
-        <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">TITLE:</div>
-        <input type="text" id="tradeSubstackTitle" style="flex:1; font-size:18px; font-weight:600;">
-      </div>
-      <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
-        <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">SUBTITLE:</div>
-        <input type="text" id="tradeSubstackSubtitle" style="flex:1; font-size:14px; color:var(--text-dim);">
-      </div>
-      <div class="char-count" id="tradeSubstackWordCount">0 words</div>
-      <textarea id="tradeSubstackBody" rows="20" oninput="countTradeSubstackWords()" style="font-size:15px; line-height:1.8;"></textarea>
-      <div class="refine-bar">
-        <input type="text" id="refineTradeSubstack" placeholder="Refine Substack..." onkeydown="if(event.key==='Enter')refineTradeContent('substack')">
-        <button class="btn btn-primary" onclick="refineTradeContent('substack')">Refine Substack</button>
-      </div>
-      <div class="loading" id="loadingRefineTradeSubstack">
-        <div class="spinner"></div>
-        <span>Refining Substack...</span>
-      </div>
-    </div>
-
-    <div class="btn-row" style="margin-top:32px;">
-      <button class="btn btn-ghost" onclick="resetTrade()">Start Over</button>
-      <button class="btn btn-secondary" onclick="copyTradePost()">Copy LinkedIn</button>
-      <button class="btn btn-secondary" onclick="copyTradeSubstack()">Copy Substack</button>
-    </div>
-  </div>
-
-</div>
-
 <!-- ═══════════ RECYCLE ═══════════ -->
 <div class="section" id="section-recycle">
 
@@ -885,158 +754,6 @@ window.addEventListener('load', function() {
 
 </div>
 
-<!-- ═══════════ VAULT ═══════════ -->
-<div class="section" id="section-vault">
-
-  <div style="margin-bottom:32px;">
-    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">Post Vault</h1>
-    <p style="color:var(--text-dim); font-size:15px;">2,350 LinkedIn posts ranked by engagement. Pick one, recycle it — fresh LinkedIn post + Substack article + branded image in seconds.</p>
-  </div>
-
-  <!-- Filters -->
-  <div class="card" style="padding:20px 36px;">
-    <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-      <input type="text" id="vaultSearch" placeholder="Search posts..." style="flex:1; min-width:200px;" oninput="vaultDebounceSearch()">
-      <div style="display:flex; gap:8px; align-items:center;">
-        <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Show:</span>
-        <button class="pill active" onclick="setVaultFilter('all',this)">All</button>
-        <button class="pill" onclick="setVaultFilter('top',this)">Top Performers</button>
-        <button class="pill" onclick="setVaultFilter('long',this)">Long-Form</button>
-        <button class="pill" onclick="setVaultFilter('short',this)">Short & Punchy</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Vault list -->
-  <div id="vault-browse">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin:24px 0 16px;">
-      <div id="vaultResultCount" style="font-size:13px; font-family:'DM Mono',monospace; color:var(--text-faint);"></div>
-      <div style="display:flex; gap:8px;">
-        <button class="btn btn-ghost" id="vaultPrev" onclick="vaultPage(-1)" disabled>&larr; Prev</button>
-        <button class="btn btn-ghost" id="vaultNext" onclick="vaultPage(1)">Next &rarr;</button>
-      </div>
-    </div>
-
-    <div id="vaultList"></div>
-
-    <div class="loading" id="loadingVault">
-      <div class="spinner"></div>
-      <span>Loading vault...</span>
-    </div>
-  </div>
-
-  <!-- Vault recycle output -->
-  <div id="vault-output" style="display:none;">
-    <div style="display:flex; gap:12px; align-items:center; margin-bottom:24px;">
-      <button class="btn btn-ghost" onclick="backToVault()">&larr; Back to Vault</button>
-      <div style="font-size:13px; font-family:'DM Mono',monospace; color:var(--text-faint);">RECYCLING POST FROM <span id="vaultRecycleDate"></span></div>
-    </div>
-
-    <!-- Original -->
-    <div class="card" style="border-left:3px solid var(--text-faint); margin-bottom:24px;">
-      <h2>Original Post</h2>
-      <div id="vaultOriginalText" style="font-size:14px; color:var(--text-dim); line-height:1.7; white-space:pre-wrap; max-height:200px; overflow-y:auto;"></div>
-    </div>
-
-    <div class="loading" id="loadingVaultRecycle">
-      <div class="spinner"></div>
-      <span>Rewriting for today's algorithm + generating Substack article...</span>
-    </div>
-
-    <!-- Image preview -->
-    <div id="vaultImageSection" style="display:none; margin-bottom:32px;">
-      <h3 style="font-size:13px; font-family:'DM Mono',monospace; color:var(--gold); text-transform:uppercase; letter-spacing:2px; margin-bottom:16px;">Branded Image</h3>
-      <div class="recycle-preview-row">
-        <div class="preview-frame" id="vaultPreviewFrame"></div>
-        <div>
-          <p style="font-size:14px; color:var(--text-dim); line-height:1.6; margin-bottom:16px;">Preview at 50%.</p>
-          <div class="btn-row" style="justify-content:flex-start;">
-            <button class="btn btn-secondary" onclick="downloadVaultPDF()">Download PDF</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- LinkedIn post -->
-    <div id="vaultLinkedInSection" style="display:none;">
-      <div class="post-box">
-        <h3>LinkedIn Post</h3>
-        <div class="char-count" id="vaultCharCount">0 / 1,500</div>
-        <textarea id="vaultPostText" rows="14" oninput="countVaultChars()"></textarea>
-        <div class="refine-bar">
-          <input type="text" id="refineVaultPost" placeholder="Refine LinkedIn post..." onkeydown="if(event.key==='Enter')refineVaultContent('post')">
-          <button class="btn btn-primary" onclick="refineVaultContent('post')">Refine Post</button>
-        </div>
-        <div class="loading" id="loadingRefineVaultPost">
-          <div class="spinner"></div>
-          <span>Refining post...</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Substack -->
-    <div id="vaultSubstackSection" style="display:none; margin-top:32px;">
-      <div class="post-box">
-        <h3>Substack Article</h3>
-        <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
-          <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">TITLE:</div>
-          <input type="text" id="vaultSubstackTitle" style="flex:1; font-size:18px; font-weight:600;">
-        </div>
-        <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
-          <div style="font-size:12px; font-family:'DM Mono',monospace; color:var(--text-faint);">SUBTITLE:</div>
-          <input type="text" id="vaultSubstackSubtitle" style="flex:1; font-size:14px; color:var(--text-dim);">
-        </div>
-        <div class="char-count" id="vaultSubstackWordCount">0 words</div>
-        <textarea id="vaultSubstackBody" rows="20" oninput="countVaultSubstackWords()" style="font-size:15px; line-height:1.8;"></textarea>
-        <div class="refine-bar">
-          <input type="text" id="refineVaultSubstack" placeholder="Refine Substack..." onkeydown="if(event.key==='Enter')refineVaultContent('substack')">
-          <button class="btn btn-primary" onclick="refineVaultContent('substack')">Refine Substack</button>
-        </div>
-        <div class="loading" id="loadingRefineVaultSubstack">
-          <div class="spinner"></div>
-          <span>Refining Substack...</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="btn-row" style="margin-top:32px;">
-      <button class="btn btn-ghost" onclick="backToVault()">Back to Vault</button>
-      <button class="btn btn-secondary" onclick="copyVaultPost()">Copy LinkedIn</button>
-      <button class="btn btn-secondary" onclick="copyVaultSubstack()">Copy Substack</button>
-    </div>
-  </div>
-
-</div>
-
-<!-- ═══════════ ANALYTICS ═══════════ -->
-<div class="section" id="section-analytics">
-  <h1 style="font-size:32px; font-weight:600; margin-bottom:24px;">Performance Analytics</h1>
-  <div class="stats-grid">
-    <div class="stat-card"><div class="val" id="sPosts">0</div><div class="lbl">Posts</div></div>
-    <div class="stat-card"><div class="val" id="sSaves">0</div><div class="lbl">Total Saves</div></div>
-    <div class="stat-card"><div class="val" id="sEng">0</div><div class="lbl">Engagement</div></div>
-    <div class="stat-card"><div class="val" id="sImpr">0</div><div class="lbl">Impressions</div></div>
-  </div>
-  <div style="margin-bottom:24px;">
-    <button class="btn btn-secondary" onclick="toggleStatForm()">+ Log Post Stats</button>
-  </div>
-  <div id="statForm" class="card" style="display:none;">
-    <h2>Log Performance</h2>
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-top:16px;">
-      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Post Title</label><input type="text" id="sfTitle"></div>
-      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Date</label><input type="text" id="sfDate"></div>
-      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Saves</label><input type="text" id="sfSaves" placeholder="0"></div>
-      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Comments</label><input type="text" id="sfComments" placeholder="0"></div>
-      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Likes</label><input type="text" id="sfLikes" placeholder="0"></div>
-      <div><label style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Impressions</label><input type="text" id="sfImpr" placeholder="0"></div>
-    </div>
-    <div class="btn-row"><button class="btn btn-ghost" onclick="toggleStatForm()">Cancel</button><button class="btn btn-primary" onclick="saveStat()">Save</button></div>
-  </div>
-  <table>
-    <thead><tr><th>Date</th><th>Post</th><th>Saves</th><th>Comments</th><th>Likes</th><th>Impressions</th><th>Save Rate</th></tr></thead>
-    <tbody id="statBody"><tr><td colspan="7" style="text-align:center; color:var(--text-faint); padding:40px;">No stats yet.</td></tr></tbody>
-  </table>
-</div>
 
 </main>
 
@@ -1058,24 +775,31 @@ const S = {
   infographicData: {},
   infographicHTML: '',
   library: JSON.parse(localStorage.getItem('n40_lib') || '[]'),
-  stats: JSON.parse(localStorage.getItem('lyra_stats') || '[]')
 };
 
 const API = window.location.hostname === 'localhost' ? 'http://localhost:5555/api' : '/api';
 
-var adminKey = localStorage.getItem('n40_admin_key') || '';
+function getProfile() {
+  try { return JSON.parse(localStorage.getItem('n40_voice_profile')); } catch(e) { return null; }
+}
+
+function saveProfile(profile) {
+  localStorage.setItem('n40_voice_profile', JSON.stringify(profile));
+}
 
 function safeFetch(url, opts = {}, timeoutMs = 90000) {
   var ctrl = new AbortController();
   var timer = setTimeout(function() { ctrl.abort(); }, timeoutMs);
-  opts.headers = opts.headers || {};
-  if (adminKey) opts.headers['X-Admin-Key'] = adminKey;
+  if (opts.method === 'POST' && opts.body) {
+    try {
+      var body = JSON.parse(opts.body);
+      var profile = getProfile();
+      if (profile && !body.profile) body.profile = profile;
+      opts.body = JSON.stringify(body);
+    } catch(e) {}
+  }
   return fetch(url, Object.assign({}, opts, { signal: ctrl.signal }))
-    .then(function(r) {
-      clearTimeout(timer);
-      if (r.status === 403) { showKeyScreen(); throw new Error('Admin key required'); }
-      return r;
-    })
+    .then(function(r) { clearTimeout(timer); return r; })
     .catch(function(e) {
       clearTimeout(timer);
       if (e.name === 'AbortError') throw new Error('Request timed out — tap to retry.');
@@ -1084,42 +808,106 @@ function safeFetch(url, opts = {}, timeoutMs = 90000) {
 }
 
 // ═══════════════════════════════════
-// ADMIN KEY GATE
+// PROFILE + ONBOARDING
 // ═══════════════════════════════════
-function showKeyScreen() {
-  document.getElementById('keyScreen').style.display = 'flex';
+var onboardHistory = [];
+var onboardCurrentQ = null;
+var onboardName = '';
+
+function showWelcomeScreen() {
+  onboardHistory = [];
+  onboardCurrentQ = null;
+  document.getElementById('welcomeStart').style.display = 'block';
+  document.getElementById('welcomeQArea').style.display = 'none';
+  document.getElementById('onboardDone').style.display = 'none';
+  var profile = getProfile();
+  if (profile && profile.name) document.getElementById('welcomeName').value = profile.name;
+  document.getElementById('welcomeScreen').style.display = 'flex';
 }
 
-async function submitKey() {
-  var key = document.getElementById('adminKeyInput').value.trim();
-  if (!key) return;
-  try {
-    var res = await fetch(API + '/verify-key', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-Admin-Key': key},
-      body: '{}'
-    });
-    if (res.ok) {
-      adminKey = key;
-      localStorage.setItem('n40_admin_key', key);
-      document.getElementById('keyScreen').style.display = 'none';
-    } else {
-      document.getElementById('keyError').textContent = 'Invalid key.';
-    }
-  } catch(e) {
-    document.getElementById('keyError').textContent = 'Connection error.';
+function hideWelcomeScreen() {
+  document.getElementById('welcomeScreen').style.display = 'none';
+}
+
+function beginOnboarding() {
+  onboardName = document.getElementById('welcomeName').value.trim() || 'Writer';
+  document.getElementById('welcomeStart').style.display = 'none';
+  document.getElementById('welcomeQArea').style.display = 'block';
+  fetchOnboardQuestion();
+}
+
+
+function checkProfile() {
+  var profile = getProfile();
+  if (profile) {
+    document.getElementById('userName').textContent = profile.name || '';
+    document.getElementById('profileLink').style.display = 'inline';
+  } else {
+    showWelcomeScreen();
   }
 }
 
-function checkAdminKey() {
-  if (!adminKey) { showKeyScreen(); return; }
-  safeFetch(API + '/verify-key', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-Admin-Key': adminKey},
-    body: '{}'
-  }).then(function(r) {
-    if (!r.ok) { adminKey = ''; localStorage.removeItem('n40_admin_key'); showKeyScreen(); }
-  }).catch(function() { showKeyScreen(); });
+async function fetchOnboardQuestion() {
+  document.getElementById('onboardLoading').style.display = 'block';
+  document.getElementById('btnOnboardNext').disabled = true;
+  try {
+    var res = await safeFetch(API + '/onboard/question', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({history: onboardHistory})
+    }, 120000);
+    var text = await res.text();
+    var data = JSON.parse(text.trim());
+    if (data.error) throw new Error(data.error);
+    if (data.ready) { completeOnboarding(); return; }
+    onboardCurrentQ = data;
+    document.getElementById('onboardQLabel').textContent = 'Question ' + (onboardHistory.length + 1) + ' — ' + data.label;
+    document.getElementById('onboardQText').textContent = data.question;
+    document.getElementById('onboardQHint').textContent = data.hint || '';
+    document.getElementById('onboardAnswer').value = '';
+  } catch(e) {
+    onboardCurrentQ = { label: 'Retry', question: 'Connection issue', hint: '' };
+    document.getElementById('onboardQHint').textContent = e.message + ' Tap Next to retry.';
+  } finally {
+    document.getElementById('onboardLoading').style.display = 'none';
+    document.getElementById('btnOnboardNext').disabled = false;
+  }
+}
+
+async function submitOnboardAnswer() {
+  var answer = document.getElementById('onboardAnswer').value.trim();
+  if (!answer || !onboardCurrentQ) return;
+  onboardHistory.push({label: onboardCurrentQ.label, question: onboardCurrentQ.question, answer: answer});
+  await fetchOnboardQuestion();
+}
+
+async function skipOnboardQuestion() {
+  if (!onboardCurrentQ) return;
+  onboardHistory.push({label: onboardCurrentQ.label, question: onboardCurrentQ.question, answer: '[skipped]'});
+  await fetchOnboardQuestion();
+}
+
+async function completeOnboarding() {
+  document.getElementById('welcomeQArea').style.display = 'none';
+  document.getElementById('onboardDone').style.display = 'block';
+  document.getElementById('onboardDoneMsg').textContent = 'Analyzing your voice...';
+  try {
+    var res = await safeFetch(API + '/onboard/complete', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({history: onboardHistory, name: onboardName})
+    }, 120000);
+    var text = await res.text();
+    var data = JSON.parse(text.trim());
+    if (data.error) { document.getElementById('onboardDoneMsg').textContent = 'Error: ' + data.error; return; }
+    var profile = data.profile || {};
+    profile.name = onboardName;
+    saveProfile(profile);
+    document.getElementById('onboardDoneMsg').textContent = data.summary || 'Voice profile created.';
+    document.getElementById('userName').textContent = onboardName;
+    document.getElementById('profileLink').style.display = 'inline';
+    setTimeout(function() { hideWelcomeScreen(); }, 3000);
+  } catch(e) {
+    document.getElementById('onboardDoneMsg').textContent = 'Error: ' + e.message;
+  }
 }
 
 // ═══════════════════════════════════
@@ -1127,10 +915,10 @@ function checkAdminKey() {
 // ═══════════════════════════════════
 document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 updateStepDots();
-checkAdminKey();
+checkProfile();
 
 // Check server connection
-safeFetch(API + '/stats').then(function() {
+fetch(API + '/health').then(function() {
   document.getElementById('statusDot').classList.add('connected');
   document.getElementById('statusDot').title = 'Connected';
 }).catch(function() {
@@ -1145,8 +933,6 @@ function showSection(name, btn) {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('section-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
-  if (name === 'analytics') renderStats();
-  if (name === 'vault') loadVault();
 }
 
 function updateStepDots() {
@@ -2165,61 +1951,6 @@ function resetRecycle() {
 }
 
 // ═══════════════════════════════════
-// ANALYTICS
-// ═══════════════════════════════════
-function toggleStatForm() {
-  const el = document.getElementById('statForm');
-  el.style.display = el.style.display === 'none' ? 'block' : 'none';
-  document.getElementById('sfDate').value = new Date().toISOString().split('T')[0];
-}
-
-function saveStat() {
-  const stat = {
-    title: document.getElementById('sfTitle').value,
-    date: document.getElementById('sfDate').value,
-    saves: parseInt(document.getElementById('sfSaves').value) || 0,
-    comments: parseInt(document.getElementById('sfComments').value) || 0,
-    likes: parseInt(document.getElementById('sfLikes').value) || 0,
-    impressions: parseInt(document.getElementById('sfImpr').value) || 0
-  };
-  S.stats.push(stat);
-  localStorage.setItem('lyra_stats', JSON.stringify(S.stats));
-
-  // Also save to server
-  fetch(API + '/stats', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(stat)
-  }).catch(() => {});
-
-  toggleStatForm();
-  renderStats();
-}
-
-function renderStats() {
-  const t = S.stats.reduce((a, s) => ({
-    saves: a.saves + s.saves, comments: a.comments + s.comments,
-    likes: a.likes + s.likes, impressions: a.impressions + s.impressions
-  }), { saves:0, comments:0, likes:0, impressions:0 });
-
-  document.getElementById('sPosts').textContent = S.stats.length;
-  document.getElementById('sSaves').textContent = t.saves.toLocaleString();
-  document.getElementById('sEng').textContent = (t.saves + t.comments + t.likes).toLocaleString();
-  document.getElementById('sImpr').textContent = t.impressions.toLocaleString();
-
-  const body = document.getElementById('statBody');
-  if (!S.stats.length) {
-    body.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-faint); padding:40px;">No stats yet.</td></tr>';
-    return;
-  }
-  const sorted = [...S.stats].sort((a, b) => b.saves - a.saves);
-  body.innerHTML = sorted.map(s => {
-    const rate = s.impressions > 0 ? ((s.saves / s.impressions) * 100).toFixed(2) + '%' : '—';
-    return `<tr><td>${s.date}</td><td>${s.title}</td><td style="color:var(--gold);font-weight:600;">${s.saves}</td><td>${s.comments}</td><td>${s.likes}</td><td>${s.impressions.toLocaleString()}</td><td>${rate}</td></tr>`;
-  }).join('');
-}
-
-// ═══════════════════════════════════
 // NOTES
 // ═══════════════════════════════════
 const N = { edge: 'teach', length: 'note', thought: '', output: '' };
@@ -2327,456 +2058,7 @@ function resetNote() {
   N.thought = ''; N.output = '';
 }
 
-// ═══════════════════════════════════
-// THE TRADE
-// ═══════════════════════════════════
-const T = {
-  chapter: null,
-  lens: 'framework',
-  angle: '',
-  photo: 'bg-field.png',
-  postText: '',
-  substackTitle: '',
-  substackSubtitle: '',
-  substackBody: '',
-  imageLines: [],
-  imageHTML: ''
-};
 
-function pickTradeChapter(num, el) {
-  T.chapter = num;
-  document.querySelectorAll('#tradeChapterGrid .template-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-}
-
-function setTradeLens(lens, btn) {
-  T.lens = lens;
-  btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-function pickTradePhoto(file, el) {
-  T.photo = file;
-  document.querySelectorAll('#tradePhotoGrid .photo-option').forEach(p => p.classList.remove('selected'));
-  el.classList.add('selected');
-}
-
-async function generateTrade() {
-  if (!T.chapter) { alert('Pick a chapter first.'); return; }
-
-  T.angle = document.getElementById('tradeAngle').value.trim();
-  document.getElementById('btnTrade').disabled = true;
-  document.getElementById('loadingTrade').classList.add('active');
-
-  try {
-    const res = await safeFetch(API + '/generate-trade', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chapter: T.chapter,
-        lens: T.lens,
-        angle: T.angle
-      })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    // LinkedIn
-    T.postText = data.postText || '';
-    document.getElementById('tradePostText').value = T.postText;
-    countTradeChars();
-
-    // Substack
-    T.substackTitle = data.substackTitle || '';
-    T.substackSubtitle = data.substackSubtitle || '';
-    T.substackBody = data.substackBody || '';
-    document.getElementById('tradeSubstackTitle').value = T.substackTitle;
-    document.getElementById('tradeSubstackSubtitle').value = T.substackSubtitle;
-    document.getElementById('tradeSubstackBody').value = T.substackBody;
-    countTradeSubstackWords();
-
-    // Image
-    T.imageLines = data.imageLines || [];
-    if (T.imageLines.length) {
-      await preloadPhoto(T.photo);
-      T.imageHTML = buildBrandedImageHTML({ lines: T.imageLines }, T.photo);
-      document.getElementById('tradePreviewFrame').innerHTML = `<iframe srcdoc="${T.imageHTML.replace(/"/g, '&quot;')}"></iframe>`;
-    }
-
-    document.getElementById('trade-step-1').style.display = 'none';
-    document.getElementById('trade-step-2').style.display = 'block';
-  } catch (e) {
-    alert('Error: ' + e.message);
-  } finally {
-    document.getElementById('btnTrade').disabled = false;
-    document.getElementById('loadingTrade').classList.remove('active');
-  }
-}
-
-function countTradeChars() {
-  const n = document.getElementById('tradePostText').value.length;
-  const el = document.getElementById('tradeCharCount');
-  el.textContent = `${n.toLocaleString()} / 1,500`;
-  el.className = 'char-count' + (n > 1500 ? ' warning' : n >= 1050 ? ' good' : '');
-}
-
-function countTradeSubstackWords() {
-  const text = document.getElementById('tradeSubstackBody').value.trim();
-  const words = text ? text.split(/\s+/).length : 0;
-  document.getElementById('tradeSubstackWordCount').textContent = `${words} words`;
-}
-
-async function refineTradeContent(type) {
-  const feedbackEl = type === 'post' ? 'refineTradePost' : 'refineTradeSubstack';
-  const loadingEl = type === 'post' ? 'loadingRefineTradePost' : 'loadingRefineTradeSubstack';
-  const feedback = document.getElementById(feedbackEl).value.trim();
-  if (!feedback) return;
-
-  document.getElementById(loadingEl).classList.add('active');
-
-  try {
-    const current = type === 'post'
-      ? document.getElementById('tradePostText').value
-      : `Title: ${document.getElementById('tradeSubstackTitle').value}\nSubtitle: ${document.getElementById('tradeSubstackSubtitle').value}\n\n${document.getElementById('tradeSubstackBody').value}`;
-
-    const res = await safeFetch(API + '/refine', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: type === 'post' ? 'post' : 'substack',
-        current,
-        feedback,
-        topic: 'The Trade — Chapter ' + T.chapter,
-        history: []
-      })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    if (type === 'post') {
-      document.getElementById('tradePostText').value = data.refined || '';
-      countTradeChars();
-    } else {
-      document.getElementById('tradeSubstackBody').value = data.refined || '';
-      countTradeSubstackWords();
-    }
-    document.getElementById(feedbackEl).value = '';
-  } catch (e) {
-    alert('Refine error: ' + e.message);
-  } finally {
-    document.getElementById(loadingEl).classList.remove('active');
-  }
-}
-
-function copyTradePost() {
-  navigator.clipboard.writeText(document.getElementById('tradePostText').value).then(() => {
-    const btn = event.target;
-    const orig = btn.textContent;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = orig, 2000);
-  });
-}
-
-function copyTradeSubstack() {
-  const title = document.getElementById('tradeSubstackTitle').value;
-  const subtitle = document.getElementById('tradeSubstackSubtitle').value;
-  const body = document.getElementById('tradeSubstackBody').value;
-  navigator.clipboard.writeText(`# ${title}\n## ${subtitle}\n\n${body}`).then(() => {
-    const btn = event.target;
-    const orig = btn.textContent;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = orig, 2000);
-  });
-}
-
-async function downloadTradePDF() {
-  try {
-    const jsPDF = window._getJsPDF();
-    const iframe = document.querySelector('#tradePreviewFrame iframe');
-    const canvas = await html2canvas(iframe.contentDocument.body, { width:1080, height:1080, scale:2, useCORS:true });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation:'portrait', unit:'px', format:[1080,1080] });
-    pdf.addImage(imgData, 'PNG', 0, 0, 1080, 1080);
-    pdf.save('n40-the-trade.pdf');
-  } catch(e) { alert('PDF error: ' + e.message); }
-}
-
-function resetTrade() {
-  document.getElementById('trade-step-1').style.display = 'block';
-  document.getElementById('trade-step-2').style.display = 'none';
-  T.chapter = null;
-  T.angle = '';
-  document.querySelectorAll('#tradeChapterGrid .template-card').forEach(c => c.classList.remove('selected'));
-  document.getElementById('tradeAngle').value = '';
-}
-
-// ═══════════════════════════════════
-// VAULT
-// ═══════════════════════════════════
-const V = {
-  posts: [],
-  total: 0,
-  page: 0,
-  filter: 'all',
-  search: '',
-  searchTimer: null,
-  current: null,  // currently recycling
-  postText: '',
-  substackTitle: '',
-  substackSubtitle: '',
-  substackBody: '',
-  imageLines: [],
-  imageHTML: ''
-};
-
-function vaultDebounceSearch() {
-  clearTimeout(V.searchTimer);
-  V.searchTimer = setTimeout(() => {
-    V.search = document.getElementById('vaultSearch').value.trim();
-    V.page = 0;
-    loadVault();
-  }, 400);
-}
-
-function setVaultFilter(filter, btn) {
-  V.filter = filter;
-  V.page = 0;
-  btn.parentElement.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  loadVault();
-}
-
-function vaultPage(dir) {
-  V.page = Math.max(0, V.page + dir);
-  loadVault();
-}
-
-async function loadVault() {
-  document.getElementById('loadingVault').classList.add('active');
-
-  let params = `page=${V.page}&per_page=25`;
-  if (V.search) params += `&q=${encodeURIComponent(V.search)}`;
-  if (V.filter === 'top') params += '&min_comments=5';
-  if (V.filter === 'long') params += '&min_chars=1500';
-  if (V.filter === 'short') params += '&min_chars=0';
-
-  // For short filter, we'll filter client-side
-  try {
-    const res = await safeFetch(API + '/vault?' + params);
-    const data = await res.json();
-    V.posts = data.posts || [];
-    V.total = data.total || 0;
-
-    // Client-side filter for "short"
-    if (V.filter === 'short') {
-      V.posts = V.posts.filter(p => p.char_count <= 800);
-    }
-
-    renderVault();
-  } catch (e) {
-    document.getElementById('vaultList').innerHTML = '<p style="color:var(--danger);">Failed to load vault.</p>';
-  } finally {
-    document.getElementById('loadingVault').classList.remove('active');
-  }
-}
-
-function renderVault() {
-  const el = document.getElementById('vaultList');
-  document.getElementById('vaultResultCount').textContent = `${V.total.toLocaleString()} posts · Page ${V.page + 1}`;
-  document.getElementById('vaultPrev').disabled = V.page === 0;
-  document.getElementById('vaultNext').disabled = (V.page + 1) * 25 >= V.total;
-
-  if (!V.posts.length) {
-    el.innerHTML = '<p style="color:var(--text-faint); text-align:center; padding:60px 0;">No posts match your filters.</p>';
-    return;
-  }
-
-  el.innerHTML = V.posts.map((p, i) => {
-    const date = p.date ? p.date.substring(0, 10) : '';
-    const hook = escapeHTML(p.text.substring(0, 180).replace(/\n/g, ' '));
-    const commentsBadge = p.comments > 0
-      ? `<span style="background:var(--gold); color:var(--bg); padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700;">${p.comments} comments</span>`
-      : '';
-    const mediaBadge = p.media_type
-      ? `<span style="background:rgba(80,200,120,0.15); color:var(--success); padding:3px 10px; border-radius:12px; font-size:11px;">${p.media_type}</span>`
-      : '';
-    const charLabel = p.char_count > 1500 ? 'long-form' : p.char_count < 600 ? 'short' : 'medium';
-
-    return `<div class="card" style="padding:20px 28px; margin-bottom:12px; cursor:pointer; transition:all 0.15s;" onmouseenter="this.style.borderColor='var(--border-active)'" onmouseleave="this.style.borderColor=''" onclick="selectVaultPost(${i})">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px;">
-        <div style="flex:1; min-width:0;">
-          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint);">${date}</span>
-            <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint);">${p.char_count} chars · ${charLabel}</span>
-            ${commentsBadge} ${mediaBadge}
-          </div>
-          <div style="font-size:15px; line-height:1.5; color:var(--text);">${hook}${p.text.length > 180 ? '...' : ''}</div>
-        </div>
-        <button class="btn btn-primary" style="padding:8px 20px; white-space:nowrap; flex-shrink:0;" onclick="event.stopPropagation(); selectVaultPost(${i})">Recycle</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function escapeHTML(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-async function selectVaultPost(idx) {
-  const post = V.posts[idx];
-  V.current = post;
-
-  // Show output view
-  document.getElementById('vault-browse').style.display = 'none';
-  document.getElementById('vault-output').style.display = 'block';
-  document.getElementById('vaultRecycleDate').textContent = post.date ? post.date.substring(0, 10) : 'archive';
-  document.getElementById('vaultOriginalText').textContent = post.text;
-
-  // Reset output sections
-  document.getElementById('vaultImageSection').style.display = 'none';
-  document.getElementById('vaultLinkedInSection').style.display = 'none';
-  document.getElementById('vaultSubstackSection').style.display = 'none';
-
-  // Start recycling
-  document.getElementById('loadingVaultRecycle').classList.add('active');
-
-  try {
-    const res = await safeFetch(API + '/vault-recycle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        original: post.text,
-        original_date: post.date ? post.date.substring(0, 10) : ''
-      })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    // LinkedIn
-    V.postText = data.postText || '';
-    document.getElementById('vaultPostText').value = V.postText;
-    countVaultChars();
-    document.getElementById('vaultLinkedInSection').style.display = 'block';
-
-    // Substack
-    V.substackTitle = data.substackTitle || '';
-    V.substackSubtitle = data.substackSubtitle || '';
-    V.substackBody = data.substackBody || '';
-    document.getElementById('vaultSubstackTitle').value = V.substackTitle;
-    document.getElementById('vaultSubstackSubtitle').value = V.substackSubtitle;
-    document.getElementById('vaultSubstackBody').value = V.substackBody;
-    countVaultSubstackWords();
-    document.getElementById('vaultSubstackSection').style.display = 'block';
-
-    // Image
-    V.imageLines = data.imageLines || [];
-    if (V.imageLines.length) {
-      await preloadPhoto('bg-field.png');
-      V.imageHTML = buildBrandedImageHTML({ lines: V.imageLines }, 'bg-field.png');
-      document.getElementById('vaultPreviewFrame').innerHTML = `<iframe srcdoc="${V.imageHTML.replace(/"/g, '&quot;')}"></iframe>`;
-      document.getElementById('vaultImageSection').style.display = 'block';
-    }
-
-  } catch (e) {
-    alert('Error: ' + e.message);
-  } finally {
-    document.getElementById('loadingVaultRecycle').classList.remove('active');
-  }
-}
-
-function backToVault() {
-  document.getElementById('vault-output').style.display = 'none';
-  document.getElementById('vault-browse').style.display = 'block';
-}
-
-function countVaultChars() {
-  const n = document.getElementById('vaultPostText').value.length;
-  const el = document.getElementById('vaultCharCount');
-  el.textContent = `${n.toLocaleString()} / 1,500`;
-  el.className = 'char-count' + (n > 1500 ? ' warning' : n >= 1050 ? ' good' : '');
-}
-
-function countVaultSubstackWords() {
-  const text = document.getElementById('vaultSubstackBody').value.trim();
-  const words = text ? text.split(/\s+/).length : 0;
-  document.getElementById('vaultSubstackWordCount').textContent = `${words} words`;
-}
-
-async function refineVaultContent(type) {
-  const feedbackEl = type === 'post' ? 'refineVaultPost' : 'refineVaultSubstack';
-  const loadingEl = type === 'post' ? 'loadingRefineVaultPost' : 'loadingRefineVaultSubstack';
-  const feedback = document.getElementById(feedbackEl).value.trim();
-  if (!feedback) return;
-
-  document.getElementById(loadingEl).classList.add('active');
-
-  try {
-    const current = type === 'post'
-      ? document.getElementById('vaultPostText').value
-      : `Title: ${document.getElementById('vaultSubstackTitle').value}\nSubtitle: ${document.getElementById('vaultSubstackSubtitle').value}\n\n${document.getElementById('vaultSubstackBody').value}`;
-
-    const res = await safeFetch(API + '/refine', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: type === 'post' ? 'post' : 'substack',
-        current,
-        feedback,
-        topic: V.current ? V.current.text.substring(0, 200) : '',
-        history: []
-      })
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    if (type === 'post') {
-      document.getElementById('vaultPostText').value = data.refined || '';
-      countVaultChars();
-    } else {
-      document.getElementById('vaultSubstackBody').value = data.refined || '';
-      countVaultSubstackWords();
-    }
-    document.getElementById(feedbackEl).value = '';
-  } catch (e) {
-    alert('Refine error: ' + e.message);
-  } finally {
-    document.getElementById(loadingEl).classList.remove('active');
-  }
-}
-
-function copyVaultPost() {
-  navigator.clipboard.writeText(document.getElementById('vaultPostText').value).then(() => {
-    const btn = event.target;
-    const orig = btn.textContent;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = orig, 2000);
-  });
-}
-
-function copyVaultSubstack() {
-  const title = document.getElementById('vaultSubstackTitle').value;
-  const subtitle = document.getElementById('vaultSubstackSubtitle').value;
-  const body = document.getElementById('vaultSubstackBody').value;
-  const full = `# ${title}\n## ${subtitle}\n\n${body}`;
-  navigator.clipboard.writeText(full).then(() => {
-    const btn = event.target;
-    const orig = btn.textContent;
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = orig, 2000);
-  });
-}
-
-async function downloadVaultPDF() {
-  try {
-    const jsPDF = window._getJsPDF();
-    const iframe = document.querySelector('#vaultPreviewFrame iframe');
-    const canvas = await html2canvas(iframe.contentDocument.body, { width:1080, height:1080, scale:2, useCORS:true });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation:'portrait', unit:'px', format:[1080,1080] });
-    pdf.addImage(imgData, 'PNG', 0, 0, 1080, 1080);
-    pdf.save('n40-vault-recycle.pdf');
-  } catch(e) { alert('PDF error: ' + e.message); }
-}
 </script>
 </body>
 </html>

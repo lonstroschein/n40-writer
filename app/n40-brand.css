@@ -30,7 +30,7 @@
   /* ── Accents ── blue does the wayfinding, orange is the one warm note ── */
   --blue:#4059AD;         /* primary accent: labels, rules, mark, CTA */
   --blue-light:#7C90E0;   /* blue on dark backgrounds */
-  --orange:#FF914D;       /* sparing warm accent: the square, pull-quotes, title rules */
+  --orange:#FF6600;       /* sparing warm accent: the square, pull-quotes, title rules */
 
   /* ── Type ── */
   --display:'Oswald','Arial Narrow',sans-serif;  /* logo, banners, headers (compressed gothic ≈ Tablet Gothic Compressed) */

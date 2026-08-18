@@ -1,17 +1,35 @@
 #!/usr/bin/env python3
-"""N40 Content Engine — Simple Flask backend with Claude API.
-No database, no auth. Voice profiles come from the client (localStorage)."""
+"""N40 Content Engine — Two firewalled engines on one server.
+Admin (/) = Lon's private engine, requires ADMIN_KEY.
+Client (/client) = public client engine, voice profiles via localStorage."""
 
 import os
 import re
 import json
 import time
 import threading
+import functools
 from flask import Flask, request, jsonify, send_from_directory, Response
 
 import anthropic
 
 app = Flask(__name__, static_folder=None)
+
+ADMIN_KEY = os.environ.get('ADMIN_KEY', '')
+
+
+def is_admin():
+    key = request.headers.get('X-Admin-Key', '')
+    return bool(ADMIN_KEY and key == ADMIN_KEY)
+
+
+def require_admin_key(f):
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not is_admin():
+            return jsonify({'error': 'Unauthorized'}), 403
+        return f(*args, **kwargs)
+    return decorated
 
 
 # ─── VOICE CONTEXTS (Lon's defaults — used when no profile is provided) ───
@@ -180,14 +198,21 @@ ALGORITHM_CONTEXT = """
 
 
 def get_contexts(data=None):
-    """Extract voice contexts from request body, falling back to Lon's defaults."""
+    """Extract voice contexts from request body.
+    Admin requests fall back to Lon's defaults. Client requests get empty strings."""
     if data is None:
         data = request.json or {}
     profile = data.get('profile', {})
-    avatar = profile.get('avatar_context') or AVATAR_CONTEXT
-    voice = profile.get('voice_context') or VOICE_CONTEXT
-    cal = profile.get('calibration') or LON_CALIBRATION
-    algo = profile.get('algorithm_context') or ALGORITHM_CONTEXT
+    if is_admin():
+        avatar = profile.get('avatar_context') or AVATAR_CONTEXT
+        voice = profile.get('voice_context') or VOICE_CONTEXT
+        cal = profile.get('calibration') or LON_CALIBRATION
+        algo = profile.get('algorithm_context') or ALGORITHM_CONTEXT
+    else:
+        avatar = profile.get('avatar_context', '')
+        voice = profile.get('voice_context', '')
+        cal = profile.get('calibration', '')
+        algo = profile.get('algorithm_context', '')
     name = profile.get('name') or 'Writer'
     return avatar, voice, cal, algo, name
 
@@ -347,9 +372,31 @@ Return ONLY valid JSON:
 
 # ─── CONTENT ROUTES ──────────────────────────────────
 
+@app.route('/robots.txt')
+def robots():
+    return Response("User-agent: *\nDisallow: /\n", mimetype='text/plain')
+
+
+@app.route('/api/health')
+def health():
+    return jsonify({'ok': True})
+
+
+@app.route('/api/verify-key', methods=['POST'])
+def verify_key():
+    if is_admin():
+        return jsonify({'ok': True})
+    return jsonify({'error': 'Invalid key'}), 403
+
+
 @app.route('/')
 def index():
     return send_from_directory(os.path.dirname(__file__), 'index.html')
+
+
+@app.route('/client')
+def client_page():
+    return send_from_directory(os.path.dirname(__file__), 'client.html')
 
 
 @app.route('/n40-brand.css')
@@ -1023,6 +1070,7 @@ Key themes: "Your final line is still unwritten." / "Will your final line be: 'I
 
 
 @app.route('/api/generate-trade', methods=['POST'])
+@require_admin_key
 def generate_trade():
     """Generate content from a chapter of The Trade book."""
     data = request.json
@@ -1113,6 +1161,7 @@ No markdown fences. No explanation. Just the JSON.""",
 
 
 @app.route('/api/vault', methods=['GET'])
+@require_admin_key
 def vault():
     """Serve the post vault — ranked LinkedIn history."""
     vault_path = os.path.join(os.path.dirname(__file__), 'vault.json')
@@ -1141,6 +1190,7 @@ def vault():
 
 
 @app.route('/api/vault-recycle', methods=['POST'])
+@require_admin_key
 def vault_recycle():
     """Recycle a vault post into fresh LinkedIn + Substack content."""
     data = request.json
@@ -1220,6 +1270,7 @@ No markdown fences. No explanation. Just the JSON.""",
 
 
 @app.route('/api/stats', methods=['GET', 'POST'])
+@require_admin_key
 def stats():
     """In-memory analytics stats (no filesystem needed)."""
     if not hasattr(app, '_stats'):
