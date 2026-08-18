@@ -291,7 +291,7 @@ Max 10 questions."""
 
     def do_call():
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514', max_tokens=1500,
+            model='claude-sonnet-5', max_tokens=1500,
             system=system_prompt,
             messages=[{'role': 'user', 'content': f'Interview so far:\n{history_text if history_text else "(First question)"}'}]
         )
@@ -327,7 +327,7 @@ def onboard_complete():
 
     def do_call():
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514', max_tokens=6000,
+            model='claude-sonnet-5', max_tokens=6000,
             system="""You are building a complete writer's voice profile from an interview.
 
 Generate FOUR sections, each clearly labeled and detailed:
@@ -480,7 +480,7 @@ NEVER ask more than 6 questions total. By question 5-6, if you don't have enough
 
     def do_call():
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514',
+            model='claude-sonnet-5',
             max_tokens=1500,
             system=system_prompt,
             messages=[{'role': 'user', 'content': user_content}]
@@ -603,7 +603,7 @@ No markdown fences. No explanation. Just the JSON."""
 
     def do_call():
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514', max_tokens=6000,
+            model='claude-sonnet-5', max_tokens=6000,
             system=system_prompt, messages=[{'role': 'user', 'content': user_msg}]
         )
         text = msg.content[0].text.strip()
@@ -681,7 +681,7 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
 
     def do_call():
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514', max_tokens=6000,
+            model='claude-sonnet-5', max_tokens=6000,
             system=system_prompt, messages=[{'role': 'user', 'content': user_content}]
         )
         text = msg.content[0].text.strip()
@@ -755,7 +755,7 @@ Rules for carousel:
 
     def do_call():
         msg = client.messages.create(
-        model='claude-sonnet-4-20250514',
+        model='claude-sonnet-5',
         max_tokens=4000,
         system=f"""You are refreshing a post for {user_name}.
 
@@ -847,7 +847,7 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
 
     def do_call():
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514', max_tokens=max_tok,
+            model='claude-sonnet-5', max_tokens=max_tok,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
         text = msg.content[0].text.strip()
@@ -969,7 +969,7 @@ Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, re
 
     def do_call():
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514', max_tokens=2000,
+            model='claude-sonnet-5', max_tokens=2000,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
         return {'note': msg.content[0].text.strip()}
@@ -1012,7 +1012,7 @@ Return ONLY the refined note text. No JSON. No quotes. No explanation."""
 
     def do_call():
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514', max_tokens=2000,
+            model='claude-sonnet-5', max_tokens=2000,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
         return {'note': msg.content[0].text.strip()}
@@ -1095,7 +1095,7 @@ def generate_trade():
 
     def do_call():
         msg = client.messages.create(
-        model='claude-sonnet-4-20250514',
+        model='claude-sonnet-5',
         max_tokens=6000,
         system=f"""You are writing content from "The Trade" — an Amazon #1 Bestseller about elite performers who are winning on paper but dying inside.
 
@@ -1205,7 +1205,7 @@ def vault_recycle():
 
     def do_call():
         msg = client.messages.create(
-        model='claude-sonnet-4-20250514',
+        model='claude-sonnet-5',
         max_tokens=6000,
         system=f"""You are refreshing a LinkedIn post for {user_name}.
 
