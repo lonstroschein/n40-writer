@@ -277,25 +277,26 @@ def onboard_question():
         history_text += f"Q: {entry.get('question', '')}\n"
         history_text += f"A: {entry.get('answer', '[skipped]')}\n"
 
-    system_prompt = f"""You are building a writer's voice profile through a conversational interview.
+    system_prompt = f"""You are building a writer's voice profile through a short conversational interview.
 
-Your job: Ask questions that reveal HOW this person writes, thinks, and speaks — so an AI can write in their voice later.
+The person is likely answering via voice-to-text on their phone, possibly on a walk. Keep questions SHORT — one sentence, conversational, easy to answer out loud.
 
 You need to uncover:
-1. WHO THEY WRITE FOR — their audience, their reader's pain, their reader's secret desire
-2. HOW THEY SOUND — casual vs formal, stories vs frameworks, warm vs blunt, long vs short
-3. THEIR SIGNATURE MOVES — phrases they use, how they open, how they close, their rhythm
-4. WHAT THEY NEVER SAY — banned words, tones they hate, styles they despise
-5. THEIR BEST WORK — ask them to share or describe 2-3 pieces they're proudest of
-6. THEIR HOOK STYLE — how they grab attention in the first line
-7. THEIR CLOSE — how they end a piece (question, invitation, challenge, statement)
+1. WHO THEY WRITE FOR — their audience, their reader's pain
+2. HOW THEY SOUND — casual vs formal, warm vs blunt
+3. WHAT THEY NEVER SAY — banned words, tones they hate
+4. THEIR BEST WORK — ask them to paste or describe 1-2 pieces they're proudest of
 
 This is question #{question_number}. Adapt based on what they've told you so far.
 
-If asking, return JSON: {{"ready": false, "label": "short label", "question": "the question", "hint": "coaching hint"}}
-If you have enough (after 8-10 questions), return: {{"ready": true}}
+RULES:
+- Questions must be 1 sentence. No preamble, no "Great answer!" filler.
+- Hints must be 1 sentence max. Practical, not philosophical.
+- Max 7 questions total. Signal ready by question 5-6 if you have enough.
+- The person should be able to answer each question in under 30 seconds.
 
-Max 10 questions."""
+If asking, return JSON: {{"ready": false, "label": "short label", "question": "the question", "hint": "one-line hint"}}
+If you have enough, return: {{"ready": true}}"""
 
     def do_call():
         msg = client.messages.create(

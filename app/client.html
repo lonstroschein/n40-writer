@@ -298,12 +298,16 @@ window.addEventListener('load', function() {
     <div style="text-align:center; margin-bottom:32px;">
       <div style="font-family:'Oswald','Arial Narrow',sans-serif; font-size:32px; font-weight:700; letter-spacing:1px; margin-bottom:4px;">N<span style="display:inline-block; width:0.20em; height:0.20em; background:#FF914D; margin:0 0.06em; vertical-align:baseline;"></span>40 <span style="font-weight:400; font-size:20px; color:var(--text-dim); letter-spacing:2px;">CONTENT ENGINE</span></div>
       <div style="width:42px; height:3px; background:var(--orange); margin:16px auto;"></div>
-      <p style="font-family:'Newsreader',Georgia,serif; color:var(--text-dim); font-size:16px; line-height:1.6;">Write LinkedIn posts, Substack articles, and branded visuals — all in your voice.</p>
     </div>
 
     <div id="welcomeStart">
-      <input type="text" id="welcomeName" placeholder="Your name" style="width:100%; margin-bottom:16px; padding:14px; font-size:16px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;">
-      <button class="btn btn-primary" onclick="beginOnboarding()" style="width:100%; margin-bottom:12px;">Build My Voice Profile</button>
+      <div style="font-family:'Newsreader',Georgia,serif; color:var(--text); font-size:17px; line-height:1.7; margin-bottom:24px;">
+        <p style="margin-bottom:14px;">Before we build anything, I need to understand who you're writing to.</p>
+        <p style="margin-bottom:14px;">I'm going to ask you a series of questions, one at a time. You can stop answering at any time, but the more you answer, the better this gets. We won't ask too many.</p>
+        <p style="margin-bottom:0; color:var(--text-dim); font-size:15px; font-style:italic;">Pro tip: use voice-to-text. Grab your phone and build this while you're out on a walk. That's how I do it.</p>
+      </div>
+      <input type="text" id="welcomeName" placeholder="Your first name" style="width:100%; margin-bottom:16px; padding:14px; font-size:16px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;">
+      <button class="btn btn-primary" onclick="beginOnboarding()" style="width:100%; margin-bottom:12px;">Let's Go</button>
     </div>
 
     <div id="welcomeQArea" style="display:none;">
