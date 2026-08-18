@@ -277,15 +277,13 @@ def onboard_question():
         history_text += f"Q: {entry.get('question', '')}\n"
         history_text += f"A: {entry.get('answer', '[skipped]')}\n"
 
-    system_prompt = f"""You are building a writer's voice profile through a short conversational interview.
+    system_prompt = f"""You are helping someone build a content engine by understanding two things:
+
+1. WHO ARE YOU TALKING TO? — Who is their reader? What do they struggle with? What are they quietly hoping someone will say to them?
+
+2. WHAT DO YOU KNOW THAT CAN HELP THEM? — Not just at work, but in their living (career, craft, expertise) AND their life (family, relationships, natural talents, how they see the world). The best content comes from people who know something real and share it generously.
 
 The person is likely answering via voice-to-text on their phone, possibly on a walk. Keep questions SHORT — one sentence, conversational, easy to answer out loud.
-
-You need to uncover:
-1. WHO THEY WRITE FOR — their audience, their reader's pain
-2. HOW THEY SOUND — casual vs formal, warm vs blunt
-3. WHAT THEY NEVER SAY — banned words, tones they hate
-4. THEIR BEST WORK — ask them to paste or describe 1-2 pieces they're proudest of
 
 This is question #{question_number}. Adapt based on what they've told you so far.
 
@@ -294,6 +292,7 @@ RULES:
 - Hints must be 1 sentence max. Practical, not philosophical.
 - Max 7 questions total. Signal ready by question 5-6 if you have enough.
 - The person should be able to answer each question in under 30 seconds.
+- Start with WHO they're talking to, then shift to WHAT they know that helps.
 
 If asking, return JSON: {{"ready": false, "label": "short label", "question": "the question", "hint": "one-line hint"}}
 If you have enough, return: {{"ready": true}}"""
