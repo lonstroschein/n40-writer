@@ -285,9 +285,6 @@ Who is their reader? What do they struggle with? What are they quietly hoping so
 SECTION 2 — WHAT DO YOU KNOW THAT CAN HELP THEM? (questions 3-5)
 Not just at work, but in their living (career, craft, expertise) AND their life (family, relationships, natural talents, how they see the world). The best content comes from people who know something real and share it generously.
 
-SECTION 3 — WHAT DO YOU SOUND LIKE? (questions 5-7)
-How do they actually talk? Casual or polished? Stories or straight advice? Do they swear? Are they warm or blunt? What words would they never use? What does their writing sound like when it's good?
-
 The person is likely answering via voice-to-text on their phone, possibly on a walk. Keep questions SHORT — one sentence, conversational, easy to answer out loud.
 
 This is question #{question_number}. Adapt based on what they've told you so far.
@@ -295,9 +292,10 @@ This is question #{question_number}. Adapt based on what they've told you so far
 RULES:
 - Questions must be 1 sentence. No preamble, no "Great answer!" filler.
 - Hints must be 1 sentence max. Practical, not philosophical.
-- Max 7 questions total. Signal ready after question 6-7.
+- Max 5 questions total. Signal ready after question 4-5.
 - The person should be able to answer each question in under 30 seconds.
-- Move through the sections in order. Don't linger on one section too long.
+- Move through the two sections in order. Don't linger on one section too long.
+- Do NOT ask about their writing style or voice — that comes later in a separate step.
 
 If asking, return JSON: {{"ready": false, "label": "short label", "question": "the question", "hint": "one-line hint"}}
 If you have enough, return: {{"ready": true}}"""
@@ -329,6 +327,9 @@ def onboard_complete():
     data = request.json
     history = data.get('history', [])
     writer_name = data.get('name', 'Writer')
+    own_writing = data.get('own_writing', '')
+    admired_writing = data.get('admired_writing', '')
+    influences = data.get('influences', '')
 
     client = get_client()
 
@@ -338,21 +339,28 @@ def onboard_complete():
         interview_text += f"Q: {entry.get('question', '')}\n"
         interview_text += f"A: {entry.get('answer', '')}\n"
 
+    sound_section = ''
+    if own_writing:
+        sound_section += f"\n\n## THEIR OWN WRITING SAMPLES\n{own_writing}"
+    if admired_writing:
+        sound_section += f"\n\n## WRITING THEY ADMIRE\n{admired_writing}"
+    if influences:
+        sound_section += f"\n\n## WRITERS & CREATORS THEY LOVE\n{influences}"
+
     def do_call():
         msg = client.messages.create(
             model='claude-sonnet-5', max_tokens=6000,
-            system="""You are building a complete writer's voice profile from an interview.
+            system="""You are building a complete writer's voice profile from an interview AND writing samples.
 
 Generate FOUR sections, each clearly labeled and detailed:
 
-1. AVATAR_CONTEXT — Who they write for. Pain points, desires, the moment they reach out, defining paradox. Model it on this structure:
-   "## [Name]'s Avatar\n[description]\n\nPAIN POINTS:\n- ...\n\nWHAT THEY WANT:\n- ...\n\nDEFINING PARADOX: ..."
+1. AVATAR_CONTEXT — Who they write for. Pain points, desires, the moment they reach out, defining paradox. Build this from the interview answers about their audience.
 
-2. VOICE_CONTEXT — How they write. Core identity, writing patterns, hook patterns, correction list, words to never use, signature language. Be extremely specific — pull exact phrases from their answers.
+2. VOICE_CONTEXT — How they write. If they provided their own writing samples, analyze those closely — pull exact phrases, sentence rhythms, how they open and close, their cadence. If they shared writing they admire or named influences, blend those patterns in. Be extremely specific.
 
-3. CALIBRATION — 2-3 examples of their BEST writing (from what they shared or described), plus 8-10 voice rules derived from their actual style. If they didn't share examples, synthesize what their best writing WOULD sound like based on everything they said.
+3. CALIBRATION — If they provided their own writing, use those as the calibration examples verbatim. If they shared admired writing, note what to borrow from it. Derive 8-10 voice rules from the actual samples. If no samples were provided, synthesize what their best writing WOULD sound like based on everything they said.
 
-4. ALGORITHM_CONTEXT — Platform rules for LinkedIn (keep the standard rules but customize for their audience).
+4. ALGORITHM_CONTEXT — Platform rules for LinkedIn customized for their audience.
 
 Return ONLY valid JSON:
 {
@@ -362,7 +370,7 @@ Return ONLY valid JSON:
   "algorithm_context": "full algorithm context text",
   "summary": "2-3 sentence summary of their voice for display"
 }""",
-            messages=[{'role': 'user', 'content': f'Writer: {writer_name}\n\nFull voice interview:\n{interview_text}'}]
+            messages=[{'role': 'user', 'content': f'Writer: {writer_name}\n\nInterview answers:\n{interview_text}{sound_section}'}]
         )
         raw = extract_text(msg)
         if raw.startswith('```'):

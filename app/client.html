@@ -325,6 +325,38 @@ window.addEventListener('load', function() {
       </div>
     </div>
 
+    <div id="onboardSound" style="display:none;">
+      <div style="font-family:'Playfair Display',Georgia,serif; font-size:22px; font-weight:700; margin-bottom:8px;">How do you sound?</div>
+      <p style="font-family:'Newsreader',Georgia,serif; color:var(--text-dim); font-size:15px; line-height:1.6; margin-bottom:24px;">Paste examples so the engine learns your voice. All optional — use whichever ones you have.</p>
+
+      <div style="margin-bottom:20px;">
+        <label style="font-family:'Oswald',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold); display:block; margin-bottom:6px;">Your own writing</label>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:8px;">Paste 1-3 of your best LinkedIn posts, emails, or anything you've written that sounds like you.</p>
+        <textarea id="soundOwnWriting" rows="6" placeholder="Paste your writing here..." style="width:100%; font-size:15px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;"></textarea>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="font-family:'Oswald',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold); display:block; margin-bottom:6px;">Writing you admire</label>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:8px;">Paste text from articles, books, or posts you wish you'd written. Copy from PDFs, emails, anywhere.</p>
+        <textarea id="soundAdmiredWriting" rows="6" placeholder="Paste writing you admire..." style="width:100%; font-size:15px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;"></textarea>
+      </div>
+
+      <div style="margin-bottom:24px;">
+        <label style="font-family:'Oswald',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold); display:block; margin-bottom:6px;">Writers & creators you love</label>
+        <p style="font-size:13px; color:var(--text-dim); margin-bottom:8px;">Names of authors, creators, or voices that influence how you think and communicate.</p>
+        <input type="text" id="soundInfluences" placeholder="e.g. Brené Brown, Seth Godin, Morgan Housel..." style="width:100%; font-size:15px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;">
+      </div>
+
+      <div style="display:flex; gap:12px;">
+        <button class="btn btn-primary" onclick="submitSoundAndBuild()">Build My Engine</button>
+        <button class="btn btn-ghost" onclick="submitSoundAndBuild()">Skip — build with what you have</button>
+      </div>
+      <div id="soundLoading" style="display:none; color:var(--text-dim); margin-top:12px;">
+        <span style="display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; margin-right:8px;"></span>
+        Building your voice profile...
+      </div>
+    </div>
+
     <div id="onboardDone" style="display:none; text-align:center; padding:40px 0;">
       <div style="font-family:'Playfair Display',Georgia,serif; font-size:20px; font-weight:700; margin-bottom:12px;">Building your voice profile...</div>
       <div id="onboardDoneMsg" style="color:var(--text-dim);"></div>
@@ -892,25 +924,42 @@ async function skipOnboardQuestion() {
 
 async function completeOnboarding() {
   document.getElementById('welcomeQArea').style.display = 'none';
-  document.getElementById('onboardDone').style.display = 'block';
-  document.getElementById('onboardDoneMsg').textContent = 'Analyzing your voice...';
+  document.getElementById('onboardSound').style.display = 'block';
+}
+
+async function submitSoundAndBuild() {
+  var ownWriting = document.getElementById('soundOwnWriting').value.trim();
+  var admiredWriting = document.getElementById('soundAdmiredWriting').value.trim();
+  var influences = document.getElementById('soundInfluences').value.trim();
+
+  document.getElementById('soundLoading').style.display = 'block';
+
   try {
     var res = await safeFetch(API + '/onboard/complete', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({history: onboardHistory, name: onboardName})
+      body: JSON.stringify({
+        history: onboardHistory,
+        name: onboardName,
+        own_writing: ownWriting,
+        admired_writing: admiredWriting,
+        influences: influences
+      })
     }, 120000);
     var text = await res.text();
     var data = JSON.parse(text.trim());
-    if (data.error) { document.getElementById('onboardDoneMsg').textContent = 'Error: ' + data.error; return; }
+    if (data.error) { document.getElementById('soundLoading').style.display = 'none'; alert('Error: ' + data.error); return; }
     var profile = data.profile || {};
     profile.name = onboardName;
     saveProfile(profile);
+    document.getElementById('onboardSound').style.display = 'none';
+    document.getElementById('onboardDone').style.display = 'block';
     document.getElementById('onboardDoneMsg').textContent = data.summary || 'Voice profile created.';
     document.getElementById('userName').textContent = onboardName;
     document.getElementById('profileLink').style.display = 'inline';
     setTimeout(function() { hideWelcomeScreen(); }, 3000);
   } catch(e) {
-    document.getElementById('onboardDoneMsg').textContent = 'Error: ' + e.message;
+    document.getElementById('soundLoading').style.display = 'none';
+    alert('Error: ' + e.message);
   }
 }
 
