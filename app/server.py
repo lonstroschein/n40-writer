@@ -265,60 +265,37 @@ def stream_claude_call(fn):
 
 # ─── ONBOARDING (voice interview for clients) ────────
 
+ONBOARD_QUESTIONS = [
+    {
+        "label": "Your reader",
+        "question": "Describe the person you want to reach with your content. Don't overthink this. Just start talking about them.",
+        "hint": "Who are they? What do they do? What's going on in their life?"
+    },
+    {
+        "label": "What they feel",
+        "question": "Tell me about what your reader is feeling. What are they worried about in the job? What are they afraid to ask for help with?",
+        "hint": "The stuff they think about on the drive home."
+    },
+    {
+        "label": "Someone you helped",
+        "question": "Tell me about someone specific — someone you've helped before. What were they dealing with and what changed?",
+        "hint": "A real person, a real situation."
+    },
+]
+
+
 @app.route('/api/onboard/question', methods=['POST'])
 def onboard_question():
-    """Dynamic voice interview — builds a client's writing profile."""
+    """Fixed voice interview — three questions, always the same."""
     data = request.json
     history = data.get('history', [])
-    question_number = len(history) + 1
+    q_index = len(history)
 
-    client = get_client()
+    if q_index >= len(ONBOARD_QUESTIONS):
+        return jsonify({'ready': True})
 
-    history_text = ''
-    for entry in history:
-        history_text += f"\n### {entry.get('label', 'Q')}\n"
-        history_text += f"Q: {entry.get('question', '')}\n"
-        history_text += f"A: {entry.get('answer', '[skipped]')}\n"
-
-    system_prompt = f"""You are helping someone build a content engine. You're interviewing them in three sections, in order:
-
-SECTION 1 — WHO ARE YOU TALKING TO? (questions 1-3)
-Who is their reader? What do they struggle with? What are they quietly hoping someone will say to them?
-
-SECTION 2 — WHAT DO YOU KNOW THAT CAN HELP THEM? (questions 3-5)
-Not just at work, but in their living (career, craft, expertise) AND their life (family, relationships, natural talents, how they see the world). The best content comes from people who know something real and share it generously.
-
-The person is likely answering via voice-to-text on their phone, possibly on a walk. Keep questions SHORT — one sentence, conversational, easy to answer out loud.
-
-This is question #{question_number}. Adapt based on what they've told you so far.
-
-RULES:
-- Questions must be 1 sentence. No preamble, no "Great answer!" filler.
-- Hints must be 1 sentence max. Practical, not philosophical.
-- Max 5 questions total. Signal ready after question 4-5.
-- The person should be able to answer each question in under 30 seconds.
-- Move through the two sections in order. Don't linger on one section too long.
-- Do NOT ask about their writing style or voice — that comes later in a separate step.
-
-If asking, return JSON: {{"ready": false, "label": "short label", "question": "the question", "hint": "one-line hint"}}
-If you have enough, return: {{"ready": true}}"""
-
-    def do_call():
-        msg = client.messages.create(
-            model='claude-haiku-4-5-20251001', max_tokens=1500,
-            system=system_prompt,
-            messages=[{'role': 'user', 'content': f'Interview so far:\n{history_text if history_text else "(First question)"}'}]
-        )
-        raw = extract_text(msg)
-        if raw.startswith('```'):
-            raw = raw.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            match = re.search(r'\{[\s\S]*\}', raw)
-            if match:
-                return json.loads(match.group())
-            return {'error': 'Unexpected format. Try again.'}
+    q = ONBOARD_QUESTIONS[q_index]
+    return jsonify({'ready': False, 'label': q['label'], 'question': q['question'], 'hint': q['hint']})
 
     return stream_claude_call(do_call)
 
