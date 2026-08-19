@@ -16,6 +16,9 @@ import anthropic
 app = Flask(__name__, static_folder=None)
 
 ADMIN_KEY = os.environ.get('ADMIN_KEY', '')
+PRO_KEYS = [k.strip() for k in os.environ.get('PRO_KEYS', '').split(',') if k.strip()]
+FREE_CHAR_LIMIT = 5000
+PRO_CHAR_LIMIT = 50000
 
 
 def extract_text(msg):
@@ -327,8 +330,10 @@ def onboard_complete():
     data = request.json
     history = data.get('history', [])
     writer_name = data.get('name', 'Writer')
-    own_writing = data.get('own_writing', '')
-    admired_writing = data.get('admired_writing', '')
+    pro_key = data.get('pro_key', '')
+    char_limit = PRO_CHAR_LIMIT if (pro_key and pro_key in PRO_KEYS) else FREE_CHAR_LIMIT
+    own_writing = data.get('own_writing', '')[:char_limit]
+    admired_writing = data.get('admired_writing', '')[:char_limit]
     influences = data.get('influences', '')
 
     client = get_client()
@@ -401,6 +406,15 @@ def robots():
 @app.route('/api/health')
 def health():
     return jsonify({'ok': True})
+
+
+@app.route('/api/verify-pro', methods=['POST'])
+def verify_pro():
+    data = request.json or {}
+    key = data.get('pro_key', '')
+    if key and key in PRO_KEYS:
+        return jsonify({'ok': True, 'tier': 'pro'})
+    return jsonify({'error': 'Invalid key'}), 403
 
 
 @app.route('/api/verify-key', methods=['POST'])

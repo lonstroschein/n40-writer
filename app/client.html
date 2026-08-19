@@ -327,24 +327,40 @@ window.addEventListener('load', function() {
 
     <div id="onboardSound" style="display:none;">
       <div style="font-family:'Playfair Display',Georgia,serif; font-size:22px; font-weight:700; margin-bottom:8px;">How do you sound?</div>
-      <p style="font-family:'Newsreader',Georgia,serif; color:var(--text-dim); font-size:15px; line-height:1.6; margin-bottom:24px;">Paste examples so the engine learns your voice. All optional — use whichever ones you have.</p>
+      <p style="font-family:'Newsreader',Georgia,serif; color:var(--text-dim); font-size:15px; line-height:1.6; margin-bottom:4px;">Paste examples so the engine learns your voice. All optional — use whichever ones you have.</p>
+      <p id="tierBadge" style="font-size:12px; font-family:'Oswald',sans-serif; letter-spacing:1px; text-transform:uppercase; margin-bottom:24px;"><span style="background:var(--border); color:var(--text); padding:3px 10px; border-radius:3px;">Free tier — 5,000 chars per field</span> <a href="#" onclick="showProKeyPrompt(); return false;" style="color:var(--gold); text-decoration:none; margin-left:8px;">Unlock Pro</a></p>
 
       <div style="margin-bottom:20px;">
-        <label style="font-family:'Oswald',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold); display:block; margin-bottom:6px;">Your own writing</label>
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+          <label style="font-family:'Oswald',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold);">Your own writing</label>
+          <span id="soundOwnCount" style="font-size:12px; color:var(--text-faint);">0 / 5,000</span>
+        </div>
         <p style="font-size:13px; color:var(--text-dim); margin-bottom:8px;">Paste 1-3 of your best LinkedIn posts, emails, or anything you've written that sounds like you.</p>
-        <textarea id="soundOwnWriting" rows="6" placeholder="Paste your writing here..." style="width:100%; font-size:15px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;"></textarea>
+        <textarea id="soundOwnWriting" rows="6" maxlength="5000" oninput="updateSoundCount('soundOwnWriting','soundOwnCount')" placeholder="Paste your writing here..." style="width:100%; font-size:15px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;"></textarea>
       </div>
 
       <div style="margin-bottom:20px;">
-        <label style="font-family:'Oswald',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold); display:block; margin-bottom:6px;">Writing you admire</label>
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+          <label style="font-family:'Oswald',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold);">Writing you admire</label>
+          <span id="soundAdmiredCount" style="font-size:12px; color:var(--text-faint);">0 / 5,000</span>
+        </div>
         <p style="font-size:13px; color:var(--text-dim); margin-bottom:8px;">Paste text from articles, books, or posts you wish you'd written. Copy from PDFs, emails, anywhere.</p>
-        <textarea id="soundAdmiredWriting" rows="6" placeholder="Paste writing you admire..." style="width:100%; font-size:15px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;"></textarea>
+        <textarea id="soundAdmiredWriting" rows="6" maxlength="5000" oninput="updateSoundCount('soundAdmiredWriting','soundAdmiredCount')" placeholder="Paste writing you admire..." style="width:100%; font-size:15px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;"></textarea>
       </div>
 
       <div style="margin-bottom:24px;">
         <label style="font-family:'Oswald',sans-serif; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold); display:block; margin-bottom:6px;">Writers & creators you love</label>
         <p style="font-size:13px; color:var(--text-dim); margin-bottom:8px;">Names of authors, creators, or voices that influence how you think and communicate.</p>
         <input type="text" id="soundInfluences" placeholder="e.g. Brené Brown, Seth Godin, Morgan Housel..." style="width:100%; font-size:15px; padding:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-family:'Newsreader',Georgia,serif;">
+      </div>
+
+      <div id="proKeyArea" style="display:none; margin-bottom:20px; padding:16px; border-radius:4px; border:1px solid var(--gold); background:rgba(64,89,173,0.05);">
+        <p style="font-size:14px; color:var(--text); margin-bottom:8px;">Enter your Pro key to unlock higher limits.</p>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="proKeyInput" placeholder="Pro key" style="flex:1; padding:10px; font-size:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);">
+          <button class="btn btn-primary" onclick="verifyProKey()">Unlock</button>
+        </div>
+        <div id="proKeyError" style="color:#FF914D; font-size:13px; margin-top:6px;"></div>
       </div>
 
       <div style="display:flex; gap:12px;">
@@ -823,6 +839,61 @@ function saveProfile(profile) {
   localStorage.setItem('n40_voice_profile', JSON.stringify(profile));
 }
 
+var FREE_LIMIT = 5000;
+var PRO_LIMIT = 50000;
+
+function getProKey() {
+  return localStorage.getItem('n40_pro_key') || '';
+}
+
+function isPro() {
+  return !!getProKey();
+}
+
+function getCharLimit() {
+  return isPro() ? PRO_LIMIT : FREE_LIMIT;
+}
+
+function updateSoundCount(textareaId, countId) {
+  var el = document.getElementById(textareaId);
+  var limit = getCharLimit();
+  el.maxLength = limit;
+  var n = el.value.length;
+  var countEl = document.getElementById(countId);
+  countEl.textContent = n.toLocaleString() + ' / ' + limit.toLocaleString();
+  countEl.style.color = n >= limit ? '#FF914D' : 'var(--text-faint)';
+}
+
+function showProKeyPrompt() {
+  document.getElementById('proKeyArea').style.display = 'block';
+  document.getElementById('proKeyInput').focus();
+}
+
+async function verifyProKey() {
+  var key = document.getElementById('proKeyInput').value.trim();
+  if (!key) return;
+  try {
+    var res = await fetch(API + '/verify-pro', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pro_key: key})
+    });
+    if (res.ok) {
+      localStorage.setItem('n40_pro_key', key);
+      document.getElementById('proKeyArea').style.display = 'none';
+      var limit = PRO_LIMIT;
+      document.getElementById('tierBadge').innerHTML = '<span style="background:var(--gold); color:var(--bg); padding:3px 10px; border-radius:3px;">Pro — ' + limit.toLocaleString() + ' chars per field</span>';
+      document.querySelectorAll('#onboardSound textarea').forEach(function(ta) { ta.maxLength = limit; });
+      updateSoundCount('soundOwnWriting', 'soundOwnCount');
+      updateSoundCount('soundAdmiredWriting', 'soundAdmiredCount');
+    } else {
+      document.getElementById('proKeyError').textContent = 'Invalid key.';
+    }
+  } catch(e) {
+    document.getElementById('proKeyError').textContent = 'Connection error.';
+  }
+}
+
 function safeFetch(url, opts = {}, timeoutMs = 90000) {
   var ctrl = new AbortController();
   var timer = setTimeout(function() { ctrl.abort(); }, timeoutMs);
@@ -942,7 +1013,8 @@ async function submitSoundAndBuild() {
         name: onboardName,
         own_writing: ownWriting,
         admired_writing: admiredWriting,
-        influences: influences
+        influences: influences,
+        pro_key: localStorage.getItem('n40_pro_key') || ''
       })
     }, 120000);
     var text = await res.text();

@@ -9,3 +9,5 @@ services:
         sync: false
       - key: ADMIN_KEY
         sync: false
+      - key: PRO_KEYS
+        sync: false
