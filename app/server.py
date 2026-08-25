@@ -32,6 +32,17 @@ PRO_CHAR_LIMIT = 50000
 WRITER_MODEL = os.environ.get('WRITER_MODEL', 'claude-fable-5')
 UTILITY_MODEL = os.environ.get('UTILITY_MODEL', 'claude-haiku-4-5')
 
+# There is a hard ~30s ceiling on a single response in front of this app
+# (measured: long generations are cut mid-stream at 30-31s no matter how often
+# the keepalive fires — it caps total duration, not idle time). Fable reasons
+# before it writes, which is worth it on a short post but blows through the
+# ceiling on the routes that emit a post plus a full article plus infographic
+# JSON. Those run a faster strong model so they actually return; the short
+# routes keep Fable. Lifting this properly means not holding the connection
+# open for the whole generation — a job the client polls — at which point
+# every route can go back to WRITER_MODEL.
+HEAVY_MODEL = os.environ.get('HEAVY_MODEL', 'claude-sonnet-5')
+
 # ---------------------------------------------------------------------------
 # Spend protection
 #
@@ -747,7 +758,7 @@ No markdown fences. No explanation. Just the JSON."""
 
     def do_call():
         msg = call_model(client,
-            model=WRITER_MODEL, max_tokens=6000,
+            model=HEAVY_MODEL, max_tokens=6000,
             system=system_prompt, messages=[{'role': 'user', 'content': user_msg}]
         )
         text = extract_text(msg)
@@ -824,7 +835,7 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
 
     def do_call():
         msg = call_model(client,
-            model=WRITER_MODEL, max_tokens=6000,
+            model=HEAVY_MODEL, max_tokens=6000,
             system=system_prompt, messages=[{'role': 'user', 'content': user_content}]
         )
         text = extract_text(msg)
@@ -897,7 +908,7 @@ Rules for carousel:
 
     def do_call():
         msg = call_model(client,
-        model=WRITER_MODEL,
+        model=HEAVY_MODEL,
         max_tokens=4000,
         system=f"""You are refreshing a post for {user_name}.
 
@@ -988,7 +999,7 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
 
     def do_call():
         msg = call_model(client,
-            model=WRITER_MODEL, max_tokens=max_tok,
+            model=HEAVY_MODEL, max_tokens=max_tok,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
         text = extract_text(msg)
@@ -1237,7 +1248,7 @@ def generate_trade():
 
     def do_call():
         msg = call_model(client,
-        model=WRITER_MODEL,
+        model=HEAVY_MODEL,
         max_tokens=6000,
         system=f"""You are writing content from "The Trade" — an Amazon #1 Bestseller about elite performers who are winning on paper but dying inside.
 
@@ -1346,7 +1357,7 @@ def vault_recycle():
 
     def do_call():
         msg = call_model(client,
-        model=WRITER_MODEL,
+        model=HEAVY_MODEL,
         max_tokens=6000,
         system=f"""You are refreshing a LinkedIn post for {user_name}.
 
