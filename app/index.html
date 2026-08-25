@@ -1065,7 +1065,10 @@ const API = window.location.hostname === 'localhost' ? 'http://localhost:5555/ap
 
 var adminKey = localStorage.getItem('n40_admin_key') || '';
 
-function safeFetch(url, opts = {}, timeoutMs = 90000) {
+// Matches MODEL_TIMEOUT on the server. The writing routes run on a model
+// that reasons before it answers, so a long generation is normal, not a
+// hang — aborting at 90s killed work that was still coming.
+function safeFetch(url, opts = {}, timeoutMs = 600000) {
   var ctrl = new AbortController();
   var timer = setTimeout(function() { ctrl.abort(); }, timeoutMs);
   opts.headers = opts.headers || {};
