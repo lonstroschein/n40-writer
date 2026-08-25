@@ -20,6 +20,96 @@ PRO_KEYS = [k.strip() for k in os.environ.get('PRO_KEYS', '').split(',') if k.st
 FREE_CHAR_LIMIT = 5000
 PRO_CHAR_LIMIT = 50000
 
+# ---------------------------------------------------------------------------
+# Model tiers
+#
+# Writing routes carry Lon's voice, so they run on the strongest model we have.
+# Mechanical routes — asking the next interview question, turning interview
+# answers into a profile — get nothing from that and would cost 10x for it.
+# Both are env-overridable so the tier can be changed in Render without a
+# deploy (e.g. WRITER_MODEL=claude-opus-5 to halve the writing cost).
+# ---------------------------------------------------------------------------
+WRITER_MODEL = os.environ.get('WRITER_MODEL', 'claude-fable-5')
+UTILITY_MODEL = os.environ.get('UTILITY_MODEL', 'claude-haiku-4-5')
+
+# ---------------------------------------------------------------------------
+# Spend protection
+#
+# The client engine is deliberately public, so every model-backed endpoint is
+# reachable without credentials — and each call costs real money. These caps
+# keep a scraper or a bored visitor from running up the Anthropic bill. Admins
+# (valid ADMIN_KEY) and Pro keyholders bypass the per-IP limit.
+# ---------------------------------------------------------------------------
+RATE_LIMIT_PER_HOUR = int(os.environ.get('RATE_LIMIT_PER_HOUR', '40'))
+RATE_LIMIT_PER_DAY = int(os.environ.get('RATE_LIMIT_PER_DAY', '200'))
+# Circuit breaker across all callers, so one bad day can't drain the account.
+GLOBAL_DAILY_CAP = int(os.environ.get('GLOBAL_DAILY_CAP', '2000'))
+
+_rate_lock = threading.Lock()
+_hits_by_ip = {}          # ip -> list[timestamp]
+_global_hits = []         # list[timestamp]
+
+
+def _client_ip():
+    fwd = request.headers.get('X-Forwarded-For', '')
+    if fwd:
+        return fwd.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+
+def _prune(stamps, now, window):
+    return [t for t in stamps if now - t < window]
+
+
+def rate_limited(f):
+    """Cap model-backed calls per IP, and globally, per rolling window."""
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if is_admin() or _has_pro_key():
+            return f(*args, **kwargs)
+
+        now = time.time()
+        ip = _client_ip()
+        with _rate_lock:
+            global _global_hits
+            _global_hits = _prune(_global_hits, now, 86400)
+            if len(_global_hits) >= GLOBAL_DAILY_CAP:
+                return jsonify({
+                    'error': 'This tool has hit its daily capacity. Try again tomorrow.'
+                }), 429
+
+            stamps = _prune(_hits_by_ip.get(ip, []), now, 86400)
+            if len([t for t in stamps if now - t < 3600]) >= RATE_LIMIT_PER_HOUR:
+                return jsonify({
+                    'error': 'Too many requests. Please wait a few minutes and try again.'
+                }), 429
+            if len(stamps) >= RATE_LIMIT_PER_DAY:
+                return jsonify({
+                    'error': 'Daily limit reached for this connection. Try again tomorrow.'
+                }), 429
+
+            stamps.append(now)
+            _hits_by_ip[ip] = stamps
+            _global_hits.append(now)
+
+            # Keep the IP table from growing without bound.
+            if len(_hits_by_ip) > 5000:
+                for k in [k for k, v in _hits_by_ip.items() if not _prune(v, now, 86400)]:
+                    _hits_by_ip.pop(k, None)
+
+        return f(*args, **kwargs)
+    return decorated
+
+
+def _has_pro_key():
+    """True when the request carries a valid Pro key."""
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        return False
+    key = (data.get('pro_key') or '').strip()
+    return bool(key and key in PRO_KEYS)
+
 
 def extract_text(msg):
     """Pull the text content from a Claude response, skipping thinking blocks."""
@@ -228,12 +318,30 @@ def get_contexts(data=None):
     return avatar, voice, cal, algo, name
 
 
+# The strong writing models think before they answer, so a single turn can run
+# for minutes. 90s was tuned for Haiku and cuts Fable off mid-sentence.
+MODEL_TIMEOUT = float(os.environ.get('MODEL_TIMEOUT', '600'))
+
+
 def get_client():
     """Get Anthropic client from environment variable."""
     api_key = os.environ.get('ANTHROPIC_API_KEY', '')
     if not api_key:
         raise ValueError('No ANTHROPIC_API_KEY found. Set it as an environment variable.')
-    return anthropic.Anthropic(api_key=api_key, timeout=90.0)
+    return anthropic.Anthropic(api_key=api_key, timeout=MODEL_TIMEOUT)
+
+
+def call_model(client, **kwargs):
+    """Run one completion over a streaming connection.
+
+    Streaming is what makes a long turn survivable — a blocking create() on a
+    multi-minute generation trips the SDK's HTTP timeout, and the reasoning
+    models routinely take that long. Callers still get one finished message
+    back; stream_claude_call() is what keeps the browser connection warm while
+    this runs.
+    """
+    with client.messages.stream(**kwargs) as stream:
+        return stream.get_final_message()
 
 
 @app.errorhandler(Exception)
@@ -285,6 +393,7 @@ ONBOARD_QUESTIONS = [
 
 
 @app.route('/api/onboard/question', methods=['POST'])
+@rate_limited
 def onboard_question():
     """Fixed voice interview — three questions, always the same."""
     data = request.json
@@ -301,6 +410,7 @@ def onboard_question():
 
 
 @app.route('/api/onboard/complete', methods=['POST'])
+@rate_limited
 def onboard_complete():
     """Take the voice interview answers and generate a full writing profile.
     Returns the profile to the client (stored in localStorage, not a database)."""
@@ -330,8 +440,8 @@ def onboard_complete():
         sound_section += f"\n\n## WRITERS & CREATORS THEY LOVE\n{influences}"
 
     def do_call():
-        msg = client.messages.create(
-            model='claude-haiku-4-5-20251001', max_tokens=6000,
+        msg = call_model(client,
+            model=UTILITY_MODEL, max_tokens=6000,
             system="""You are building a complete writer's voice profile from an interview AND writing samples.
 
 Generate FOUR sections, each clearly labeled and detailed:
@@ -422,6 +532,7 @@ def serve_image(filename):
 
 
 @app.route('/api/next-question', methods=['POST'])
+@rate_limited
 def next_question():
     """Generate the NEXT interview question dynamically, streamed to keep connection alive."""
     data = request.json
@@ -491,8 +602,8 @@ NEVER ask more than 6 questions total. By question 5-6, if you don't have enough
     user_content = f'{user_name}\'s seed:\n\n{topic}\n\n--- CONVERSATION SO FAR ---\n{history_text if history_text else "(First question — no answers yet)"}'
 
     def do_call():
-        msg = client.messages.create(
-            model='claude-haiku-4-5-20251001',
+        msg = call_model(client,
+            model=UTILITY_MODEL,
             max_tokens=1500,
             system=system_prompt,
             messages=[{'role': 'user', 'content': user_content}]
@@ -512,6 +623,7 @@ NEVER ask more than 6 questions total. By question 5-6, if you don't have enough
 
 
 @app.route('/api/generate-content', methods=['POST'])
+@rate_limited
 def generate_content():
     """Given topic + full interview history, generate LinkedIn post + Substack post + infographic."""
     data = request.json
@@ -614,8 +726,8 @@ No markdown fences. No explanation. Just the JSON."""
     user_msg = f'Topic: {topic}\nTemplate: {template}\nColor mode: {color_mode}\n\n{user_name}\'s raw answers:\n{answers_text}'
 
     def do_call():
-        msg = client.messages.create(
-            model='claude-haiku-4-5-20251001', max_tokens=6000,
+        msg = call_model(client,
+            model=WRITER_MODEL, max_tokens=6000,
             system=system_prompt, messages=[{'role': 'user', 'content': user_msg}]
         )
         text = extract_text(msg)
@@ -627,6 +739,7 @@ No markdown fences. No explanation. Just the JSON."""
 
 
 @app.route('/api/refine', methods=['POST'])
+@rate_limited
 def refine():
     """Iterate on existing content with feedback."""
     data = request.json
@@ -692,8 +805,8 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
     user_content += f'Feedback:\n{feedback}'
 
     def do_call():
-        msg = client.messages.create(
-            model='claude-haiku-4-5-20251001', max_tokens=6000,
+        msg = call_model(client,
+            model=WRITER_MODEL, max_tokens=6000,
             system=system_prompt, messages=[{'role': 'user', 'content': user_content}]
         )
         text = extract_text(msg)
@@ -705,6 +818,7 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
 
 
 @app.route('/api/recycle', methods=['POST'])
+@rate_limited
 def recycle():
     """Recycle an old post into fresh algorithm-optimized content + visual."""
     data = request.json
@@ -766,8 +880,8 @@ Rules for carousel:
 """
 
     def do_call():
-        msg = client.messages.create(
-        model='claude-haiku-4-5-20251001',
+        msg = call_model(client,
+        model=WRITER_MODEL,
         max_tokens=4000,
         system=f"""You are refreshing a post for {user_name}.
 
@@ -816,6 +930,7 @@ No markdown fences. No explanation. Just the JSON.""",
 
 
 @app.route('/api/recycle-refine', methods=['POST'])
+@rate_limited
 def recycle_refine():
     """Refine recycled content with feedback."""
     data = request.json
@@ -858,8 +973,8 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
         max_tok = 2000
 
     def do_call():
-        msg = client.messages.create(
-            model='claude-haiku-4-5-20251001', max_tokens=max_tok,
+        msg = call_model(client,
+            model=WRITER_MODEL, max_tokens=max_tok,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
         text = extract_text(msg)
@@ -871,6 +986,7 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
 
 
 @app.route('/api/generate-note', methods=['POST'])
+@rate_limited
 def generate_note():
     """Take a short thought and write it as a LinkedIn Note — 4 length modes."""
     data = request.json
@@ -980,8 +1096,8 @@ Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, re
     usr_msg = f'{user_name}\'s raw thought (keep the words, shape don\'t rewrite):\n\n{thought}'
 
     def do_call():
-        msg = client.messages.create(
-            model='claude-haiku-4-5-20251001', max_tokens=2000,
+        msg = call_model(client,
+            model=WRITER_MODEL, max_tokens=2000,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
         return {'note': extract_text(msg)}
@@ -990,6 +1106,7 @@ Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, re
 
 
 @app.route('/api/refine-note', methods=['POST'])
+@rate_limited
 def refine_note():
     """Refine a LinkedIn Note with feedback."""
     data = request.json
@@ -1023,8 +1140,8 @@ Return ONLY the refined note text. No JSON. No quotes. No explanation."""
     usr_msg = f'Original thought: {thought}\n\nCurrent note:\n{current}\n\nFeedback: {feedback}'
 
     def do_call():
-        msg = client.messages.create(
-            model='claude-haiku-4-5-20251001', max_tokens=2000,
+        msg = call_model(client,
+            model=WRITER_MODEL, max_tokens=2000,
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
         return {'note': extract_text(msg)}
@@ -1082,6 +1199,7 @@ Key themes: "Your final line is still unwritten." / "Will your final line be: 'I
 
 
 @app.route('/api/generate-trade', methods=['POST'])
+@rate_limited
 @require_admin_key
 def generate_trade():
     """Generate content from a chapter of The Trade book."""
@@ -1106,8 +1224,8 @@ def generate_trade():
     angle_line = f"\n\n{user_name}'s specific angle for this post:\n{angle}" if angle else ""
 
     def do_call():
-        msg = client.messages.create(
-        model='claude-haiku-4-5-20251001',
+        msg = call_model(client,
+        model=WRITER_MODEL,
         max_tokens=6000,
         system=f"""You are writing content from "The Trade" — an Amazon #1 Bestseller about elite performers who are winning on paper but dying inside.
 
@@ -1202,6 +1320,7 @@ def vault():
 
 
 @app.route('/api/vault-recycle', methods=['POST'])
+@rate_limited
 @require_admin_key
 def vault_recycle():
     """Recycle a vault post into fresh LinkedIn + Substack content."""
@@ -1216,8 +1335,8 @@ def vault_recycle():
     client = get_client()
 
     def do_call():
-        msg = client.messages.create(
-        model='claude-haiku-4-5-20251001',
+        msg = call_model(client,
+        model=WRITER_MODEL,
         max_tokens=6000,
         system=f"""You are refreshing a LinkedIn post for {user_name}.
 
