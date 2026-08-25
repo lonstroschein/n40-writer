@@ -119,6 +119,26 @@ def extract_text(msg):
     return ''
 
 
+def parse_json_response(text):
+    """Parse a JSON object out of a model response.
+
+    The prompts all ask for bare JSON, but a model that reasons first will
+    occasionally open with a line of preamble or wrap the object in a fence
+    anyway. Falling back to the outermost braces beats failing a whole
+    generation over a stray sentence.
+    """
+    text = (text or '').strip()
+    if text.startswith('```'):
+        text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start, end = text.find('{'), text.rfind('}')
+        if start == -1 or end <= start:
+            raise
+        return json.loads(text[start:end + 1])
+
+
 def is_admin():
     key = request.headers.get('X-Admin-Key', '')
     return bool(ADMIN_KEY and key == ADMIN_KEY)
@@ -731,9 +751,7 @@ No markdown fences. No explanation. Just the JSON."""
             system=system_prompt, messages=[{'role': 'user', 'content': user_msg}]
         )
         text = extract_text(msg)
-        if text.startswith('```'):
-            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        return json.loads(text)
+        return parse_json_response(text)
 
     return stream_claude_call(do_call)
 
@@ -810,9 +828,7 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
             system=system_prompt, messages=[{'role': 'user', 'content': user_content}]
         )
         text = extract_text(msg)
-        if text.startswith('```'):
-            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        return json.loads(text)
+        return parse_json_response(text)
 
     return stream_claude_call(do_call)
 
@@ -922,9 +938,7 @@ No markdown fences. No explanation. Just the JSON.""",
         messages=[{'role': 'user', 'content': f'Post to improve:\n\n{original}'}]
     )
         text = extract_text(msg)
-        if text.startswith('```'):
-            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        return json.loads(text)
+        return parse_json_response(text)
 
     return stream_claude_call(do_call)
 
@@ -978,9 +992,7 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
             system=sys_prompt, messages=[{'role': 'user', 'content': usr_msg}]
         )
         text = extract_text(msg)
-        if text.startswith('```'):
-            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        return json.loads(text)
+        return parse_json_response(text)
 
     return stream_claude_call(do_call)
 
@@ -1283,9 +1295,7 @@ No markdown fences. No explanation. Just the JSON.""",
         }]
     )
         text = extract_text(msg)
-        if text.startswith('```'):
-            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        return json.loads(text)
+        return parse_json_response(text)
 
     return stream_claude_call(do_call)
 
@@ -1393,9 +1403,7 @@ No markdown fences. No explanation. Just the JSON.""",
         messages=[{'role': 'user', 'content': f'Original post ({original_date}):\n\n{original}'}]
     )
         text = extract_text(msg)
-        if text.startswith('```'):
-            text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
-        return json.loads(text)
+        return parse_json_response(text)
 
     return stream_claude_call(do_call)
 
