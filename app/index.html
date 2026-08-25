@@ -1065,6 +1065,36 @@ const API = window.location.hostname === 'localhost' ? 'http://localhost:5555/ap
 
 var adminKey = localStorage.getItem('n40_admin_key') || '';
 
+// The generation routes hand back a job id instead of finished content. A
+// single response cannot stay open long enough for the model to finish — it
+// gets cut at ~30s — so the work carries on server-side and we poll for it.
+// Resolving to an ordinary Response keeps every existing call site unchanged.
+function awaitJob(r, timeoutMs) {
+  if (!r.ok) return r;
+  return r.clone().json().then(function(d) {
+    if (!d || !d.job_id) return r;
+    var deadline = Date.now() + timeoutMs;
+    return new Promise(function(resolve, reject) {
+      (function poll() {
+        if (Date.now() > deadline) { reject(new Error('Request timed out — tap to retry.')); return; }
+        setTimeout(function() {
+          var h = {};
+          if (adminKey) h['X-Admin-Key'] = adminKey;
+          fetch(API + '/job/' + d.job_id, { headers: h })
+            .then(function(jr) { return jr.json(); })
+            .then(function(j) {
+              if (j && j.status === 'running') { poll(); return; }
+              resolve(new Response(JSON.stringify(j), {
+                status: 200, headers: { 'Content-Type': 'application/json' }
+              }));
+            })
+            .catch(reject);
+        }, 1200);
+      })();
+    });
+  }, function() { return r; });
+}
+
 // Matches MODEL_TIMEOUT on the server. The writing routes run on a model
 // that reasons before it answers, so a long generation is normal, not a
 // hang — aborting at 90s killed work that was still coming.
@@ -1077,7 +1107,7 @@ function safeFetch(url, opts = {}, timeoutMs = 600000) {
     .then(function(r) {
       clearTimeout(timer);
       if (r.status === 403) { showKeyScreen(); throw new Error('Admin key required'); }
-      return r;
+      return awaitJob(r, timeoutMs);
     })
     .catch(function(e) {
       clearTimeout(timer);

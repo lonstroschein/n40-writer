@@ -894,6 +894,34 @@ async function verifyProKey() {
   }
 }
 
+// The generation routes hand back a job id instead of finished content. A
+// single response cannot stay open long enough for the model to finish — it
+// gets cut at ~30s — so the work carries on server-side and we poll for it.
+// Resolving to an ordinary Response keeps every existing call site unchanged.
+function awaitJob(r, timeoutMs) {
+  if (!r.ok) return r;
+  return r.clone().json().then(function(d) {
+    if (!d || !d.job_id) return r;
+    var deadline = Date.now() + timeoutMs;
+    return new Promise(function(resolve, reject) {
+      (function poll() {
+        if (Date.now() > deadline) { reject(new Error('Request timed out — tap to retry.')); return; }
+        setTimeout(function() {
+          fetch(API + '/job/' + d.job_id)
+            .then(function(jr) { return jr.json(); })
+            .then(function(j) {
+              if (j && j.status === 'running') { poll(); return; }
+              resolve(new Response(JSON.stringify(j), {
+                status: 200, headers: { 'Content-Type': 'application/json' }
+              }));
+            })
+            .catch(reject);
+        }, 1200);
+      })();
+    });
+  }, function() { return r; });
+}
+
 // Matches MODEL_TIMEOUT on the server. The writing routes run on a model
 // that reasons before it answers, so a long generation is normal, not a
 // hang — aborting at 90s killed work that was still coming.
@@ -909,7 +937,7 @@ function safeFetch(url, opts = {}, timeoutMs = 600000) {
     } catch(e) {}
   }
   return fetch(url, Object.assign({}, opts, { signal: ctrl.signal }))
-    .then(function(r) { clearTimeout(timer); return r; })
+    .then(function(r) { clearTimeout(timer); return awaitJob(r, timeoutMs); })
     .catch(function(e) {
       clearTimeout(timer);
       if (e.name === 'AbortError') throw new Error('Request timed out — tap to retry.');

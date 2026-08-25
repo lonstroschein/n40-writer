@@ -9,6 +9,7 @@ import json
 import time
 import threading
 import functools
+import uuid
 from flask import Flask, request, jsonify, send_from_directory, Response
 
 import anthropic
@@ -32,16 +33,14 @@ PRO_CHAR_LIMIT = 50000
 WRITER_MODEL = os.environ.get('WRITER_MODEL', 'claude-fable-5')
 UTILITY_MODEL = os.environ.get('UTILITY_MODEL', 'claude-haiku-4-5')
 
-# There is a hard ~30s ceiling on a single response in front of this app
-# (measured: long generations are cut mid-stream at 30-31s no matter how often
-# the keepalive fires — it caps total duration, not idle time). Fable reasons
-# before it writes, which is worth it on a short post but blows through the
-# ceiling on the routes that emit a post plus a full article plus infographic
-# JSON. Those run a faster strong model so they actually return; the short
-# routes keep Fable. Lifting this properly means not holding the connection
-# open for the whole generation — a job the client polls — at which point
-# every route can go back to WRITER_MODEL.
-HEAVY_MODEL = os.environ.get('HEAVY_MODEL', 'claude-sonnet-5')
+# The routes that emit long output — a post plus a full article plus
+# infographic JSON — briefly ran a faster model to fit under the ~30s ceiling
+# on a single response. Generation now happens on a job the client polls (see
+# run_as_job), so that ceiling no longer applies and these are back on the
+# writing model. Kept as its own knob purely as an escape hatch: set
+# HEAVY_MODEL in Render to pull just the long routes onto a faster model
+# without touching the short ones or shipping a deploy.
+HEAVY_MODEL = os.environ.get('HEAVY_MODEL', WRITER_MODEL)
 
 # ---------------------------------------------------------------------------
 # Spend protection
@@ -368,8 +367,8 @@ def call_model(client, **kwargs):
     Streaming is what makes a long turn survivable — a blocking create() on a
     multi-minute generation trips the SDK's HTTP timeout, and the reasoning
     models routinely take that long. Callers still get one finished message
-    back; stream_claude_call() is what keeps the browser connection warm while
-    this runs.
+    back; this runs on a job thread, so nothing is holding a browser
+    connection open while it works.
     """
     with client.messages.stream(**kwargs) as stream:
         return stream.get_final_message()
@@ -380,26 +379,75 @@ def handle_error(e):
     return jsonify({'error': f'Something went wrong — try again. ({type(e).__name__})'}), 503
 
 
-def stream_claude_call(fn):
-    """Run fn() in a thread, sending keepalive spaces every 2s.
-    fn must return a JSON-serializable dict. Prevents Render 30s idle timeout."""
-    result = {'data': None, 'error': None}
-    def wrapper():
+# ---------------------------------------------------------------------------
+# Background jobs
+#
+# Generation used to happen inside the request, with keepalive bytes holding
+# the connection open. That stopped working once the writing routes moved to a
+# model that reasons first: there is a ~30s ceiling on a single response in
+# front of this app, and it caps total duration, so no amount of keepalive
+# saves a longer generation — the response is simply cut and the caller gets a
+# 200 with no content. Handing back a job id and letting the client poll takes
+# the ceiling out of play, which is what lets these routes use the model we
+# actually want instead of the fastest one that fits under 30s.
+#
+# The store is in-process, which is fine on a single worker and is also why
+# jobs are reaped rather than kept.
+# ---------------------------------------------------------------------------
+JOB_TTL = 900
+
+_jobs = {}
+_jobs_lock = threading.Lock()
+
+
+def _reap_jobs(now):
+    """Drop finished jobs nobody collected. Caller must hold _jobs_lock."""
+    for k in [k for k, v in _jobs.items() if now - v['ts'] > JOB_TTL]:
+        _jobs.pop(k, None)
+
+
+def run_as_job(fn):
+    """Start fn() in the background and hand back a job id to poll.
+
+    fn must return a JSON-serializable dict. Errors are captured and returned
+    from the job endpoint rather than raised here, so the caller sees the same
+    {'error': ...} shape it always did.
+    """
+    job_id = uuid.uuid4().hex
+    now = time.time()
+    with _jobs_lock:
+        _reap_jobs(now)
+        _jobs[job_id] = {'status': 'running', 'data': None, 'error': None, 'ts': now}
+
+    def worker():
         try:
-            result['data'] = fn()
+            data = fn()
+            status, payload = 'done', {'data': data}
         except Exception as e:
-            result['error'] = f'{type(e).__name__}: {str(e)}'
-    def generate():
-        t = threading.Thread(target=wrapper)
-        t.start()
-        while t.is_alive():
-            yield ' '
-            t.join(timeout=2)
-        if result['error']:
-            yield json.dumps({'error': result['error']})
-        else:
-            yield json.dumps(result['data'])
-    return Response(generate(), mimetype='application/json')
+            status, payload = 'error', {'error': f'{type(e).__name__}: {str(e)}'}
+        with _jobs_lock:
+            job = _jobs.get(job_id)
+            if job is not None:
+                job.update(status=status, ts=time.time(), **payload)
+
+    threading.Thread(target=worker, daemon=True).start()
+    return jsonify({'job_id': job_id})
+
+
+@app.route('/api/job/<job_id>')
+def job_status(job_id):
+    """Poll a generation started by run_as_job()."""
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if job is None:
+            return jsonify({'error': 'That generation expired. Try again.'}), 404
+        if job['status'] == 'running':
+            return jsonify({'status': 'running'})
+        # Finished either way — hand it over once and free the slot.
+        _jobs.pop(job_id, None)
+        if job['status'] == 'error':
+            return jsonify({'error': job['error']})
+        return jsonify(job['data'])
 
 
 # ─── ONBOARDING (voice interview for clients) ────────
@@ -437,7 +485,7 @@ def onboard_question():
     q = ONBOARD_QUESTIONS[q_index]
     return jsonify({'ready': False, 'label': q['label'], 'question': q['question'], 'hint': q['hint']})
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/onboard/complete', methods=['POST'])
@@ -511,7 +559,7 @@ Return ONLY valid JSON:
             'summary': profile.get('summary', 'Profile created.')
         }
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 # ─── CONTENT ROUTES ──────────────────────────────────
@@ -650,7 +698,7 @@ NEVER ask more than 6 questions total. By question 5-6, if you don't have enough
                 return json.loads(match.group())
             return {'error': 'Claude returned an unexpected format. Try again.'}
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/generate-content', methods=['POST'])
@@ -764,7 +812,7 @@ No markdown fences. No explanation. Just the JSON."""
         text = extract_text(msg)
         return parse_json_response(text)
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/refine', methods=['POST'])
@@ -841,7 +889,7 @@ Return ONLY valid JSON with: {{ {", ".join(return_fields)} }}"""
         text = extract_text(msg)
         return parse_json_response(text)
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/recycle', methods=['POST'])
@@ -951,7 +999,7 @@ No markdown fences. No explanation. Just the JSON.""",
         text = extract_text(msg)
         return parse_json_response(text)
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/recycle-refine', methods=['POST'])
@@ -1005,7 +1053,7 @@ Return ONLY valid JSON: {{"postText": "refined text"}}"""
         text = extract_text(msg)
         return parse_json_response(text)
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/generate-note', methods=['POST'])
@@ -1125,7 +1173,7 @@ Return ONLY the note text. No JSON. No quotes. No explanation. Just the note, re
         )
         return {'note': extract_text(msg)}
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/refine-note', methods=['POST'])
@@ -1169,7 +1217,7 @@ Return ONLY the refined note text. No JSON. No quotes. No explanation."""
         )
         return {'note': extract_text(msg)}
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 TRADE_CHAPTERS = {
@@ -1308,7 +1356,7 @@ No markdown fences. No explanation. Just the JSON.""",
         text = extract_text(msg)
         return parse_json_response(text)
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/vault', methods=['GET'])
@@ -1416,7 +1464,7 @@ No markdown fences. No explanation. Just the JSON.""",
         text = extract_text(msg)
         return parse_json_response(text)
 
-    return stream_claude_call(do_call)
+    return run_as_job(do_call)
 
 
 @app.route('/api/stats', methods=['GET', 'POST'])
