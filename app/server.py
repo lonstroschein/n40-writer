@@ -701,6 +701,45 @@ def serve_image(filename):
     return send_from_directory(os.path.join(os.path.dirname(__file__), 'images'), filename)
 
 
+def _manifest(name, short_name, start_url):
+    """Web app manifest — what makes this installable to a home screen.
+
+    Icons are the N.40 mark on brand midnight. iOS paints its own background
+    behind a transparent icon, so these are deliberately opaque rather than
+    letting the orange square land on whatever iOS picks.
+    """
+    resp = jsonify({
+        'name': name,
+        'short_name': short_name,
+        'description': 'Write, recycle and publish N.40 content.',
+        'start_url': start_url,
+        'scope': '/',
+        'display': 'standalone',
+        'background_color': '#101109',
+        'theme_color': '#101109',
+        'icons': [
+            {'src': '/images/icon-192.png', 'sizes': '192x192',
+             'type': 'image/png', 'purpose': 'any'},
+            {'src': '/images/icon-512.png', 'sizes': '512x512',
+             'type': 'image/png', 'purpose': 'any'},
+            {'src': '/images/icon-512-maskable.png', 'sizes': '512x512',
+             'type': 'image/png', 'purpose': 'maskable'},
+        ],
+    })
+    resp.headers['Content-Type'] = 'application/manifest+json'
+    return resp
+
+
+@app.route('/manifest.webmanifest')
+def manifest_admin():
+    return _manifest('N.40 Content Engine', 'N.40 Writer', '/')
+
+
+@app.route('/client.webmanifest')
+def manifest_client():
+    return _manifest('N.40 Writer', 'N.40 Writer', '/client')
+
+
 @app.route('/api/next-question', methods=['POST'])
 @rate_limited
 def next_question():

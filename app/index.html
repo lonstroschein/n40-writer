@@ -2,8 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>N.40 Content Engine</title>
+
+<!-- Home-screen install. iOS ignores the manifest for the icon and title, so the
+     apple-* tags below are not duplicates — they are what Safari actually reads. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#101109">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="N.40 Writer">
+<link rel="apple-touch-icon" href="/images/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
