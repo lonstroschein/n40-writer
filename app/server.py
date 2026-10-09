@@ -43,6 +43,75 @@ UTILITY_MODEL = os.environ.get('UTILITY_MODEL', 'claude-haiku-4-5')
 HEAVY_MODEL = os.environ.get('HEAVY_MODEL', WRITER_MODEL)
 
 # ---------------------------------------------------------------------------
+# Durable store
+#
+# Render's filesystem is ephemeral — anything written next to the code is gone
+# on the next deploy, which is why analytics used to live in a module global
+# and voice profiles live in the browser. Point DATA_DIR at a mounted disk and
+# dismissals, saved styles and stats survive deploys and follow Lon between
+# devices. Without one everything still works, it just resets on deploy, and
+# /api/storage reports which you are getting so it is never a silent surprise.
+# ---------------------------------------------------------------------------
+DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(__file__), '.data'))
+
+_store_lock = threading.RLock()
+
+
+def _probe_store():
+    """Whether a DATA_DIR is configured AND actually writable.
+
+    A set env var on its own proves nothing: if the disk never mounted, the
+    path is usually still writable on the container's own ephemeral filesystem,
+    and claiming that is durable would be worse than claiming nothing. This at
+    least catches the case where the directory cannot be written at all.
+    """
+    if not os.environ.get('DATA_DIR'):
+        return False
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        probe = os.path.join(DATA_DIR, '.write-probe')
+        with open(probe, 'w') as f:
+            f.write('ok')
+        os.remove(probe)
+        return True
+    except OSError:
+        return False
+
+
+STORE_IS_PERSISTENT = _probe_store()
+
+
+def _store_path(name):
+    return os.path.join(DATA_DIR, name + '.json')
+
+
+def store_read(name, default):
+    with _store_lock:
+        try:
+            with open(_store_path(name)) as f:
+                return json.load(f)
+        except (FileNotFoundError, ValueError, OSError):
+            return default
+
+
+def store_write(name, value):
+    """Write via a temp file and rename, so a crash mid-write cannot leave a
+    truncated file behind that would read back as an empty store."""
+    with _store_lock:
+        try:
+            os.makedirs(DATA_DIR, exist_ok=True)
+            tmp = _store_path(name) + '.tmp'
+            with open(tmp, 'w') as f:
+                json.dump(value, f)
+            os.replace(tmp, _store_path(name))
+        except OSError as e:
+            # Surfaced to the caller as a plain message rather than a 500, so a
+            # misconfigured disk reads as "could not save" instead of a crash.
+            raise RuntimeError(f'Could not write to {DATA_DIR}: {e}')
+    return value
+
+
+# ---------------------------------------------------------------------------
 # Spend protection
 #
 # The client engine is deliberately public, so every model-backed endpoint is
@@ -345,6 +414,28 @@ def get_contexts(data=None):
         cal = profile.get('calibration', '')
         algo = profile.get('algorithm_context', '')
     name = profile.get('name') or 'Writer'
+
+    # A saved style layers ON TOP of the voice OS rather than replacing it.
+    # Swapping a whole calibrated voice for a few lines of style note is how you
+    # lose the thing that makes the output sound like Lon, so the note is an
+    # additional constraint applied last, where it can bend the voice but not
+    # erase it.
+    style_note = (data.get('style_note') or '').strip()
+    if not style_note:
+        style_id = data.get('style_id')
+        if style_id:
+            saved = store_read('styles', {}).get(str(style_id))
+            if saved:
+                style_note = (saved.get('note') or '').strip()
+    if style_note:
+        voice = f"""{voice}
+
+## STYLE OVERLAY — applies to this piece only
+Everything above still governs. Apply this on top of it, and where the two
+genuinely collide, this wins:
+
+{style_note}"""
+
     return avatar, voice, cal, algo, name
 
 
@@ -1373,7 +1464,17 @@ def vault():
     min_comments = int(request.args.get('min_comments', 0))
     min_chars = int(request.args.get('min_chars', 0))
     page = int(request.args.get('page', 0))
-    per_page = int(request.args.get('per_page', 25))
+    # Capped so a stray per_page cannot try to serialize all 2,350 posts at once.
+    per_page = max(1, min(int(request.args.get('per_page', 50)), 200))
+    # 'only' lists what has been dismissed, so a mistake can be found and undone.
+    dismissed_mode = request.args.get('dismissed', 'hide')
+
+    dismissed = store_read('dismissed', {})
+
+    if dismissed_mode == 'only':
+        posts = [p for p in posts if str(p['id']) in dismissed]
+    elif dismissed_mode != 'show':
+        posts = [p for p in posts if str(p['id']) not in dismissed]
 
     if search:
         posts = [p for p in posts if search in p['text'].lower()]
@@ -1385,7 +1486,43 @@ def vault():
     total = len(posts)
     posts = posts[page * per_page:(page + 1) * per_page]
 
-    return jsonify({'posts': posts, 'total': total, 'page': page, 'per_page': per_page})
+    # Flag each row so the browser can label and un-dismiss without a second call.
+    for p in posts:
+        entry = dismissed.get(str(p['id']))
+        p['dismissed'] = bool(entry)
+        p['dismissed_reason'] = (entry or {}).get('reason', '') if isinstance(entry, dict) else ''
+
+    return jsonify({'posts': posts, 'total': total, 'page': page, 'per_page': per_page,
+                    'dismissed_total': len(dismissed)})
+
+
+@app.route('/api/vault/dismiss', methods=['POST'])
+@require_admin_key
+def vault_dismiss():
+    """Mark a vault post as never-recycle, or put it back.
+
+    Dismissal is for posts tied to a moment that cannot be reused — a launch, a
+    date, an event. Reversible on purpose: the cost of a wrong dismissal should
+    be one click, not a lost post.
+    """
+    data = request.json or {}
+    post_id = data.get('id')
+    if post_id is None:
+        return jsonify({'error': 'No post id provided'}), 400
+
+    dismissed = store_read('dismissed', {})
+    key = str(post_id)
+
+    if data.get('dismissed', True):
+        dismissed[key] = {'at': time.strftime('%Y-%m-%d %H:%M:%S'),
+                          'reason': (data.get('reason') or '').strip()[:200]}
+    else:
+        dismissed.pop(key, None)
+
+    store_write('dismissed', dismissed)
+    return jsonify({'ok': True, 'dismissed': key in dismissed,
+                    'dismissed_total': len(dismissed),
+                    'persistent': STORE_IS_PERSISTENT})
 
 
 @app.route('/api/vault-recycle', methods=['POST'])
@@ -1467,19 +1604,74 @@ No markdown fences. No explanation. Just the JSON.""",
     return run_as_job(do_call)
 
 
+@app.route('/api/storage')
+@require_admin_key
+def storage_status():
+    """Say plainly whether anything saved here will survive the next deploy."""
+    return jsonify({
+        'persistent': STORE_IS_PERSISTENT,
+        'path': DATA_DIR,
+        'dismissed': len(store_read('dismissed', {})),
+        'styles': len(store_read('styles', {})),
+    })
+
+
+@app.route('/api/styles', methods=['GET', 'POST'])
+@require_admin_key
+def styles():
+    """Named writing styles that layer on top of the voice OS.
+
+    A style is a short note, not a whole voice — "blunter, shorter sentences,
+    no story" or "lean on the research, cite the survey". get_contexts() appends
+    it to the voice as a final constraint.
+    """
+    if request.method == 'GET':
+        saved = store_read('styles', {})
+        return jsonify({'styles': sorted(saved.values(), key=lambda s: s.get('name', '').lower()),
+                        'persistent': STORE_IS_PERSISTENT})
+
+    data = request.json or {}
+    name = (data.get('name') or '').strip()
+    note = (data.get('note') or '').strip()
+    if not name or not note:
+        return jsonify({'error': 'A style needs both a name and a note.'}), 400
+
+    saved = store_read('styles', {})
+    style_id = str(data.get('id') or uuid.uuid4().hex[:12])
+    saved[style_id] = {
+        'id': style_id,
+        'name': name[:60],
+        'note': note[:4000],
+        'updated': time.strftime('%Y-%m-%d %H:%M:%S'),
+    }
+    store_write('styles', saved)
+    return jsonify({'ok': True, 'style': saved[style_id]})
+
+
+@app.route('/api/styles/<style_id>', methods=['DELETE'])
+@require_admin_key
+def delete_style(style_id):
+    saved = store_read('styles', {})
+    if saved.pop(str(style_id), None) is None:
+        return jsonify({'error': 'No such style.'}), 404
+    store_write('styles', saved)
+    return jsonify({'ok': True})
+
+
 @app.route('/api/stats', methods=['GET', 'POST'])
 @require_admin_key
 def stats():
-    """In-memory analytics stats (no filesystem needed)."""
-    if not hasattr(app, '_stats'):
-        app._stats = []
-
+    """Analytics stats. These used to live in a module global and vanish on
+    every restart; they go through the store now so they last as long as
+    DATA_DIR does."""
     if request.method == 'GET':
-        return jsonify(app._stats)
+        return jsonify(store_read('stats', []))
 
-    if request.method == 'POST':
-        app._stats.append(request.json)
-        return jsonify({'saved': True})
+    entries = store_read('stats', [])
+    entries.append(request.json)
+    store_write('stats', entries)
+    return jsonify({'saved': True, 'total': len(entries),
+                    'persistent': STORE_IS_PERSISTENT})
 
 
 if __name__ == '__main__':

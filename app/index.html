@@ -905,6 +905,42 @@ window.addEventListener('load', function() {
         <button class="pill" onclick="setVaultFilter('short',this)">Short & Punchy</button>
       </div>
     </div>
+    <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Dismissed:</span>
+        <button class="pill active" id="vaultDismHide" onclick="setVaultDismissed('hide',this)">Hidden</button>
+        <button class="pill" id="vaultDismOnly" onclick="setVaultDismissed('only',this)">Show dismissed</button>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Per page:</span>
+        <select id="vaultPerPage" onchange="setVaultPerPage(this.value)" style="padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-size:13px;">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex:1; min-width:220px;">
+        <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Style:</span>
+        <select id="vaultStyle" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-size:13px;">
+          <option value="">Default voice</option>
+        </select>
+        <button class="btn btn-ghost" style="padding:6px 14px; font-size:12px;" onclick="openStyles()">Manage</button>
+      </div>
+    </div>
+    <div id="vaultStorageWarn" style="display:none; margin-top:12px; padding:10px 14px; border-radius:8px; background:rgba(255,102,0,0.12); border:1px solid rgba(255,102,0,0.35); font-size:12.5px; color:var(--text-dim);"></div>
+
+    <div id="stylesPanel" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+      <h3 style="font-size:15px; font-weight:600; margin-bottom:4px;">Writing styles</h3>
+      <p style="font-size:13px; color:var(--text-dim); margin-bottom:14px;">A style is a short instruction layered on top of your voice for one piece — it bends the voice, it doesn't replace it.</p>
+      <div id="stylesList"></div>
+      <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
+        <input type="hidden" id="styleId">
+        <input type="text" id="styleName" placeholder="Style name — e.g. Blunt, Research-led" style="padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-size:14px;">
+        <textarea id="styleNote" rows="3" placeholder="What changes? e.g. Shorter sentences. No story. Say the hard thing first." style="padding:10px 12px; border-radius:6px; border:1px solid var(--border); background:var(--bg-card); color:var(--text); font-size:14px; line-height:1.5;"></textarea>
+        <div><button class="btn btn-primary" style="padding:8px 20px;" onclick="saveStyle()">Save style</button></div>
+      </div>
+    </div>
   </div>
 
   <!-- Vault list -->
@@ -1179,7 +1215,7 @@ function showSection(name, btn) {
   document.getElementById('section-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
   if (name === 'analytics') renderStats();
-  if (name === 'vault') loadVault();
+  if (name === 'vault') { loadVault(); loadStyles(); checkStorage(); }
 }
 
 function updateStepDots() {
@@ -2549,7 +2585,10 @@ function resetTrade() {
 const V = {
   posts: [],
   total: 0,
+  dismissedTotal: 0,
   page: 0,
+  perPage: 50,
+  dismissedMode: 'hide',
   filter: 'all',
   search: '',
   searchTimer: null,
@@ -2584,10 +2623,159 @@ function vaultPage(dir) {
   loadVault();
 }
 
+// Saved writing styles. A style layers on top of the voice OS server-side;
+// the browser only ever passes the id.
+var VSTYLES = [];
+
+function currentStyleId() {
+  var el = document.getElementById('vaultStyle');
+  return el ? el.value : '';
+}
+
+async function loadStyles() {
+  try {
+    const res = await safeFetch(API + '/styles');
+    const data = await res.json();
+    VSTYLES = data.styles || [];
+  } catch (e) { VSTYLES = []; }
+
+  const sel = document.getElementById('vaultStyle');
+  if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">Default voice</option>' +
+    VSTYLES.map(s => `<option value="${s.id}">${escapeHTML(s.name)}</option>`).join('');
+  sel.value = keep;
+}
+
+function openStyles() {
+  const box = document.getElementById('stylesPanel');
+  if (!box) return;
+  const open = box.style.display !== 'none';
+  box.style.display = open ? 'none' : 'block';
+  if (!open) renderStyles();
+}
+
+function renderStyles() {
+  const list = document.getElementById('stylesList');
+  if (!list) return;
+  list.innerHTML = VSTYLES.length
+    ? VSTYLES.map(s => `<div style="padding:14px 0; border-bottom:1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; font-size:14px; margin-bottom:4px;">${escapeHTML(s.name)}</div>
+            <div style="font-size:13px; color:var(--text-dim); line-height:1.5; white-space:pre-wrap;">${escapeHTML(s.note)}</div>
+          </div>
+          <div style="display:flex; gap:6px; flex-shrink:0;">
+            <button class="btn btn-ghost" style="padding:5px 12px; font-size:12px;" onclick="editStyle('${s.id}')">Edit</button>
+            <button class="btn btn-ghost" style="padding:5px 12px; font-size:12px;" onclick="deleteStyle('${s.id}')">Delete</button>
+          </div>
+        </div>
+      </div>`).join('')
+    : '<p style="color:var(--text-faint); font-size:13px; padding:12px 0;">No saved styles yet. A style is a short note that bends the voice for one piece — it never replaces it.</p>';
+}
+
+function editStyle(id) {
+  const s = VSTYLES.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('styleId').value = s.id;
+  document.getElementById('styleName').value = s.name;
+  document.getElementById('styleNote').value = s.note;
+}
+
+async function saveStyle() {
+  const id = document.getElementById('styleId').value;
+  const name = document.getElementById('styleName').value.trim();
+  const note = document.getElementById('styleNote').value.trim();
+  if (!name || !note) { alert('A style needs both a name and a note.'); return; }
+  try {
+    const res = await safeFetch(API + '/styles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id || undefined, name, note })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('styleId').value = '';
+    document.getElementById('styleName').value = '';
+    document.getElementById('styleNote').value = '';
+    await loadStyles();
+    renderStyles();
+  } catch (e) { alert('Could not save: ' + e.message); }
+}
+
+async function deleteStyle(id) {
+  if (!confirm('Delete this style?')) return;
+  try {
+    await safeFetch(API + '/styles/' + id, { method: 'DELETE' });
+    await loadStyles();
+    renderStyles();
+  } catch (e) { alert('Could not delete: ' + e.message); }
+}
+
+async function checkStorage() {
+  const warn = document.getElementById('vaultStorageWarn');
+  if (!warn) return;
+  try {
+    const res = await safeFetch(API + '/storage');
+    const d = await res.json();
+    if (d.persistent) { warn.style.display = 'none'; return; }
+    // Say it plainly rather than let dismissals quietly evaporate on deploy.
+    warn.style.display = 'block';
+    warn.innerHTML = '<strong>Not saved permanently.</strong> No storage disk is attached, ' +
+      'so dismissals and styles reset on the next deploy. Add a Render disk and set ' +
+      '<code>DATA_DIR</code> to make them stick.';
+  } catch (e) { warn.style.display = 'none'; }
+}
+
+function setVaultDismissed(mode, btn) {
+  V.dismissedMode = mode;
+  V.page = 0;
+  ['vaultDismHide','vaultDismOnly'].forEach(id => document.getElementById(id).classList.remove('active'));
+  btn.classList.add('active');
+  loadVault();
+}
+
+function setVaultPerPage(n) {
+  V.perPage = parseInt(n, 10) || 50;
+  V.page = 0;
+  loadVault();
+}
+
+async function dismissVaultPost(id, dismissed) {
+  let reason = '';
+  if (dismissed) {
+    reason = prompt('Why skip this one? (optional — e.g. "book launch, one-time event")') || '';
+  }
+  try {
+    const res = await safeFetch(API + '/vault/dismiss', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, dismissed: dismissed, reason: reason })
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    loadVault();
+  } catch (e) {
+    alert('Could not save that: ' + e.message);
+  }
+}
+
+function toggleVaultExpand(i) {
+  const body = document.getElementById('vaultText' + i);
+  const link = document.getElementById('vaultMore' + i);
+  if (!body) return;
+  const open = body.getAttribute('data-open') === '1';
+  body.textContent = open ? V.posts[i].text.substring(0, 180).replace(/\n/g, ' ') + '…'
+                          : V.posts[i].text;
+  body.style.whiteSpace = open ? 'normal' : 'pre-wrap';
+  body.setAttribute('data-open', open ? '0' : '1');
+  if (link) link.textContent = open ? 'Read full post' : 'Collapse';
+}
+
 async function loadVault() {
   document.getElementById('loadingVault').classList.add('active');
 
-  let params = `page=${V.page}&per_page=25`;
+  let params = `page=${V.page}&per_page=${V.perPage || 50}&dismissed=${V.dismissedMode || 'hide'}`;
   if (V.search) params += `&q=${encodeURIComponent(V.search)}`;
   if (V.filter === 'top') params += '&min_comments=5';
   if (V.filter === 'long') params += '&min_chars=1500';
@@ -2599,6 +2787,7 @@ async function loadVault() {
     const data = await res.json();
     V.posts = data.posts || [];
     V.total = data.total || 0;
+    V.dismissedTotal = data.dismissed_total || 0;
 
     // Client-side filter for "short"
     if (V.filter === 'short') {
@@ -2615,9 +2804,13 @@ async function loadVault() {
 
 function renderVault() {
   const el = document.getElementById('vaultList');
-  document.getElementById('vaultResultCount').textContent = `${V.total.toLocaleString()} posts · Page ${V.page + 1}`;
+  const per = V.perPage || 50;
+  const pages = Math.max(1, Math.ceil(V.total / per));
+  const dismissedNote = V.dismissedTotal ? ` · ${V.dismissedTotal.toLocaleString()} dismissed` : '';
+  document.getElementById('vaultResultCount').textContent =
+    `${V.total.toLocaleString()} posts · Page ${V.page + 1} of ${pages.toLocaleString()}${dismissedNote}`;
   document.getElementById('vaultPrev').disabled = V.page === 0;
-  document.getElementById('vaultNext').disabled = (V.page + 1) * 25 >= V.total;
+  document.getElementById('vaultNext').disabled = (V.page + 1) * per >= V.total;
 
   if (!V.posts.length) {
     el.innerHTML = '<p style="color:var(--text-faint); text-align:center; padding:60px 0;">No posts match your filters.</p>';
@@ -2643,9 +2836,16 @@ function renderVault() {
             <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint);">${p.char_count} chars · ${charLabel}</span>
             ${commentsBadge} ${mediaBadge}
           </div>
-          <div style="font-size:15px; line-height:1.5; color:var(--text);">${hook}${p.text.length > 180 ? '...' : ''}</div>
+          <div id="vaultText${i}" data-open="0" style="font-size:15px; line-height:1.5; color:var(--text);">${hook}${p.text.length > 180 ? '…' : ''}</div>
+          ${p.text.length > 180 ? `<a id="vaultMore${i}" onclick="event.stopPropagation(); toggleVaultExpand(${i})" style="display:inline-block; margin-top:10px; font-size:12px; font-family:'DM Mono',monospace; color:var(--gold); cursor:pointer; letter-spacing:0.5px;">Read full post</a>` : ''}
+          ${p.dismissed && p.dismissed_reason ? `<div style="margin-top:10px; font-size:12px; color:var(--text-faint); font-style:italic;">Dismissed — ${escapeHTML(p.dismissed_reason)}</div>` : ''}
         </div>
-        <button class="btn btn-primary" style="padding:8px 20px; white-space:nowrap; flex-shrink:0;" onclick="event.stopPropagation(); selectVaultPost(${i})">Recycle</button>
+        <div style="display:flex; flex-direction:column; gap:8px; flex-shrink:0;">
+          <button class="btn btn-primary" style="padding:8px 20px; white-space:nowrap;" onclick="event.stopPropagation(); selectVaultPost(${i})">Recycle</button>
+          ${p.dismissed
+            ? `<button class="btn btn-ghost" style="padding:6px 20px; white-space:nowrap; font-size:12px;" onclick="event.stopPropagation(); dismissVaultPost(${p.id}, false)">Restore</button>`
+            : `<button class="btn btn-ghost" style="padding:6px 20px; white-space:nowrap; font-size:12px;" onclick="event.stopPropagation(); dismissVaultPost(${p.id}, true)">Dismiss</button>`}
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -2679,7 +2879,8 @@ async function selectVaultPost(idx) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         original: post.text,
-        original_date: post.date ? post.date.substring(0, 10) : ''
+        original_date: post.date ? post.date.substring(0, 10) : '',
+        style_id: currentStyleId()
       })
     });
     const data = await res.json();
@@ -2748,25 +2949,35 @@ async function refineVaultContent(type) {
       ? document.getElementById('vaultPostText').value
       : `Title: ${document.getElementById('vaultSubstackTitle').value}\nSubtitle: ${document.getElementById('vaultSubstackSubtitle').value}\n\n${document.getElementById('vaultSubstackBody').value}`;
 
+    // This used to send {type, current} and read data.refined. The server reads
+    // {target, postText, substackBody} and returns those same field names, so
+    // every refine sent an empty post and then wrote the undefined result back
+    // into the textarea — it silently erased the post it was meant to improve.
     const res = await safeFetch(API + '/refine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: type === 'post' ? 'post' : 'substack',
-        current,
+        target: type === 'post' ? 'post' : 'substack',
+        postText: document.getElementById('vaultPostText').value,
+        substackTitle: document.getElementById('vaultSubstackTitle').value,
+        substackSubtitle: document.getElementById('vaultSubstackSubtitle').value,
+        substackBody: document.getElementById('vaultSubstackBody').value,
         feedback,
         topic: V.current ? V.current.text.substring(0, 200) : '',
-        history: []
+        style_id: currentStyleId()
       })
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
+    // Only write back what came back, so a partial response cannot blank a field.
     if (type === 'post') {
-      document.getElementById('vaultPostText').value = data.refined || '';
+      if (data.postText) document.getElementById('vaultPostText').value = data.postText;
       countVaultChars();
     } else {
-      document.getElementById('vaultSubstackBody').value = data.refined || '';
+      if (data.substackTitle) document.getElementById('vaultSubstackTitle').value = data.substackTitle;
+      if (data.substackSubtitle) document.getElementById('vaultSubstackSubtitle').value = data.substackSubtitle;
+      if (data.substackBody) document.getElementById('vaultSubstackBody').value = data.substackBody;
       countVaultSubstackWords();
     }
     document.getElementById(feedbackEl).value = '';

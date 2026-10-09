@@ -11,3 +11,14 @@ services:
         sync: false
       - key: PRO_KEYS
         sync: false
+      # Point this at a mounted disk to make dismissals, saved writing styles
+      # and analytics survive deploys. Without it the app still runs, it just
+      # forgets them on every deploy (and /api/storage says so in the UI).
+      - key: DATA_DIR
+        value: /var/data
+    # Attach the disk in the Render dashboard (Disks -> Add Disk) with mount
+    # path /var/data, then redeploy. 1 GB is far more than enough.
+    disk:
+      name: n40-writer-data
+      mountPath: /var/data
+      sizeGB: 1
