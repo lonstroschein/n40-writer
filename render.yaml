@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: n40-linkedin
+    name: n40-writer
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app.server:app --bind 0.0.0.0:$PORT --timeout 120
@@ -16,8 +16,10 @@ services:
       # forgets them on every deploy (and /api/storage says so in the UI).
       - key: DATA_DIR
         value: /var/data
-    # Attach the disk in the Render dashboard (Disks -> Add Disk) with mount
-    # path /var/data, then redeploy. 1 GB is far more than enough.
+    # Attach in the dashboard: Disks -> Add Disk, mount path /var/data, 1 GB.
+    # The form no longer asks for a disk name. Note that attaching a disk
+    # disables zero-downtime deploys and pins the service to one instance —
+    # both fine here, since the store is per-instance anyway.
     disk:
       name: n40-writer-data
       mountPath: /var/data
