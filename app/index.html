@@ -383,6 +383,7 @@ window.addEventListener('load', function() {
   <button onclick="showSection('notes', this)">Notes</button>
   <button onclick="showSection('trade', this)">The Trade</button>
   <button onclick="showSection('recycle', this)">Recycle</button>
+  <button onclick="showSection('rambles', this)">Rambles</button>
   <button onclick="showSection('vault', this)">Vault</button>
   <button onclick="showSection('analytics', this)">Analytics</button>
 </nav>
@@ -954,6 +955,75 @@ window.addEventListener('load', function() {
 </div>
 
 <!-- ═══════════ VAULT ═══════════ -->
+<div class="section" id="section-rambles">
+  <div style="margin-bottom:32px;">
+    <h1 style="font-size:32px; font-weight:600; margin-bottom:8px;">Rambles</h1>
+    <p style="color:var(--text-dim); font-size:15px;">Write from a real conversation. Recent calls come from Fathom; everything older comes from the Drive archive.</p>
+  </div>
+
+  <div id="ramblesSetup" style="display:none; margin-bottom:20px; padding:12px 16px; border-radius:8px; background:rgba(255,102,0,0.12); border:1px solid rgba(255,102,0,0.35); font-size:13px; color:var(--text-dim);"></div>
+
+  <!-- Three ways in -->
+  <div class="card" style="padding:24px 36px;">
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="rambleRecent()">Recent Ramble</button>
+      <button class="btn btn-secondary" onclick="rambleRandom()">Random Ramble</button>
+      <div style="display:flex; gap:8px; flex:1; min-width:260px;">
+        <input type="text" id="rambleSearch" placeholder="Search the archive — e.g. lost parent"
+               style="flex:1;" onkeydown="if(event.key==='Enter')rambleSearch()">
+        <button class="btn btn-secondary" onclick="rambleSearch()">Search</button>
+      </div>
+    </div>
+    <div style="display:flex; gap:16px; align-items:center; margin-top:14px; flex-wrap:wrap;">
+      <div style="display:flex; gap:8px; align-items:center; flex:1; min-width:220px;">
+        <span style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Style:</span>
+        <select id="rambleStyle" style="flex:1; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text); font-size:13px;">
+          <option value="">Default voice</option>
+        </select>
+      </div>
+      <div id="rambleIndexInfo" style="font-size:11px; font-family:var(--mono); color:var(--text-faint);"></div>
+      <button class="btn btn-ghost" style="padding:6px 14px; font-size:12px;" onclick="rambleReindex()">Rebuild index</button>
+    </div>
+  </div>
+
+  <div class="loading" id="loadingRambles"><div class="spinner"></div><span id="ramblesLoadingText">Looking...</span></div>
+
+  <!-- Results -->
+  <div id="rambleResults" style="margin-top:20px;"></div>
+
+  <!-- Writer -->
+  <div id="rambleWriter" style="display:none; margin-top:24px;">
+    <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px;">
+      <button class="btn btn-ghost" onclick="backToRambles()">&larr; Back</button>
+      <div id="rambleSourceLabel" style="font-size:13px; font-family:var(--mono); color:var(--text-faint);"></div>
+    </div>
+
+    <div class="card" style="padding:20px 28px; margin-bottom:16px;">
+      <div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Transcript</div>
+      <div id="rambleTranscript" style="font-size:13.5px; color:var(--text-dim); line-height:1.65; white-space:pre-wrap; max-height:220px; overflow-y:auto;"></div>
+    </div>
+
+    <div class="btn-row" style="justify-content:flex-start; margin-bottom:16px;">
+      <button class="btn btn-primary" onclick="rambleGenerate()">Write LinkedIn Post</button>
+    </div>
+
+    <div class="post-box" id="rambleOutput" style="display:none;">
+      <h3>LinkedIn Post</h3>
+      <div class="char-count" id="rambleCharCount">0 / 1,500</div>
+      <textarea id="ramblePostText" rows="16" oninput="countRambleChars()"></textarea>
+      <div class="btn-row" style="justify-content:flex-start; margin-top:12px;">
+        <button class="btn btn-secondary" onclick="copyForLinkedIn('ramblePostText')">Copy for LinkedIn</button>
+      </div>
+      <div class="refine-bar">
+        <input type="text" id="refineRamble" placeholder="Make it longer... change the tone... cut the opener..."
+               onkeydown="if(event.key==='Enter')rambleRefine()">
+        <button class="btn btn-primary" onclick="rambleRefine()">Refine</button>
+      </div>
+      <div class="loading" id="loadingRambleRefine"><div class="spinner"></div><span>Refining...</span></div>
+    </div>
+  </div>
+</div>
+
 <div class="section" id="section-vault">
 
   <div style="margin-bottom:32px;">
@@ -1284,6 +1354,7 @@ function showSection(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'analytics') renderStats();
   if (name === 'vault') { loadVault(); loadStyles(); checkStorage(); }
+  if (name === 'rambles') ramblesInit();
 }
 
 function updateStepDots() {
@@ -2850,6 +2921,221 @@ function toggleVaultExpand(i) {
   body.style.whiteSpace = open ? 'normal' : 'pre-wrap';
   body.setAttribute('data-open', open ? '0' : '1');
   if (link) link.textContent = open ? 'Read full post' : 'Collapse';
+}
+
+// ─── RAMBLES ────────────────────────────────────────────────────────────────
+var RB = { current: null, transcript: '', results: [] };
+
+function rambleBusy(on, text) {
+  var el = document.getElementById('loadingRambles');
+  if (text) document.getElementById('ramblesLoadingText').textContent = text;
+  el.classList.toggle('active', !!on);
+}
+
+async function ramblesInit() {
+  loadStyles();
+  var sel = document.getElementById('rambleStyle');
+  if (sel) {
+    var keep = sel.value;
+    sel.innerHTML = '<option value="">Default voice</option>' +
+      VSTYLES.map(function(s){ return '<option value="' + s.id + '">' + escapeHTML(s.name) + '</option>'; }).join('');
+    sel.value = keep;
+  }
+  try {
+    var res = await safeFetch(API + '/rambles/status');
+    var d = await res.json();
+    document.getElementById('rambleIndexInfo').textContent =
+      d.indexed ? d.indexed.toLocaleString() + ' transcripts indexed' : 'no index yet';
+    // Say plainly what is missing rather than let a button fail for no visible reason.
+    var missing = [];
+    if (!d.fathom) missing.push('Fathom (FATHOM_API_KEY) — Recent Ramble will not work');
+    if (!d.drive) missing.push('Google Drive (GOOGLE_DRIVE_TOKEN_JSON) — search and Random Ramble will not work');
+    var warn = document.getElementById('ramblesSetup');
+    if (missing.length) {
+      warn.style.display = 'block';
+      warn.innerHTML = '<strong>Not connected yet.</strong><br>' + missing.join('<br>');
+    } else { warn.style.display = 'none'; }
+  } catch (e) { /* status is advisory; the buttons report their own errors */ }
+}
+
+function renderRambles(list, emptyMsg) {
+  RB.results = list;
+  var el = document.getElementById('rambleResults');
+  if (!list.length) {
+    el.innerHTML = '<p style="color:var(--text-faint); text-align:center; padding:40px 0;">' + emptyMsg + '</p>';
+    return;
+  }
+  el.innerHTML = list.map(function(r, i) {
+    var meta = [r.date, r.person, r.source === 'fathom' ? 'Fathom' : 'Archive'].filter(Boolean).join(' · ');
+    return '<div class="card" style="padding:16px 24px; margin-bottom:10px; cursor:pointer;" onclick="pickRamble(' + i + ')">' +
+      '<div style="display:flex; justify-content:space-between; gap:16px; align-items:center;">' +
+      '<div style="flex:1; min-width:0;">' +
+      '<div style="font-size:15px; margin-bottom:4px;">' + escapeHTML(r.title || 'Untitled') + '</div>' +
+      '<div style="font-size:11px; font-family:var(--mono); color:var(--text-faint);">' + escapeHTML(meta) + '</div>' +
+      '</div><button class="btn btn-primary" style="padding:8px 18px; white-space:nowrap;" onclick="event.stopPropagation(); pickRamble(' + i + ')">Use</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+async function rambleRecent() {
+  rambleBusy(true, 'Checking Fathom...');
+  document.getElementById('rambleWriter').style.display = 'none';
+  try {
+    var res = await safeFetch(API + '/rambles/recent');
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+    renderRambles(d.rambles || [], 'No calls recorded in the last ' + (d.days || 60) + ' days.');
+  } catch (e) { alert('Recent Ramble: ' + e.message); }
+  finally { rambleBusy(false); }
+}
+
+async function rambleSearch() {
+  var q = document.getElementById('rambleSearch').value.trim();
+  if (!q) return;
+  rambleBusy(true, 'Searching the archive...');
+  document.getElementById('rambleWriter').style.display = 'none';
+  try {
+    var res = await safeFetch(API + '/rambles/search?q=' + encodeURIComponent(q));
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+    renderRambles(d.rambles || [], 'Nothing in the archive matches "' + escapeHTML(q) + '".');
+  } catch (e) { alert('Search: ' + e.message); }
+  finally { rambleBusy(false); }
+}
+
+async function rambleRandom() {
+  rambleBusy(true, 'Picking one...');
+  try {
+    var res = await safeFetch(API + '/rambles/random');
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+    renderRambles([d.ramble], '');
+    pickRamble(0);
+  } catch (e) { alert('Random Ramble: ' + e.message); }
+  finally { rambleBusy(false); }
+}
+
+async function rambleReindex() {
+  if (!confirm('Rebuild the ramble index? This walks the Drive archive and takes a few minutes.')) return;
+  rambleBusy(true, 'Rebuilding index — this takes a few minutes...');
+  try {
+    var res = await safeFetch(API + '/rambles/reindex', { method: 'POST' });
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('rambleIndexInfo').textContent = d.indexed.toLocaleString() + ' transcripts indexed';
+  } catch (e) { alert('Reindex: ' + e.message); }
+  finally { rambleBusy(false); }
+}
+
+async function pickRamble(i) {
+  var r = RB.results[i];
+  if (!r) return;
+  RB.current = r;
+  rambleBusy(true, 'Fetching the transcript...');
+  try {
+    var res = await safeFetch(API + '/rambles/transcript', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: r.source, id: r.id })
+    });
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+    RB.transcript = d.text || '';
+    document.getElementById('rambleTranscript').textContent = RB.transcript.slice(0, 4000);
+    document.getElementById('rambleSourceLabel').textContent =
+      [r.date, r.person, r.title].filter(Boolean).join(' · ');
+    document.getElementById('rambleWriter').style.display = 'block';
+    document.getElementById('rambleOutput').style.display = 'none';
+    document.getElementById('rambleWriter').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) { alert('Transcript: ' + e.message); }
+  finally { rambleBusy(false); }
+}
+
+function backToRambles() {
+  document.getElementById('rambleWriter').style.display = 'none';
+}
+
+function countRambleChars() {
+  var n = document.getElementById('ramblePostText').value.length;
+  var el = document.getElementById('rambleCharCount');
+  el.textContent = n.toLocaleString() + ' / 1,500';
+  el.style.color = n > 1500 ? 'var(--danger)' : 'var(--text-faint)';
+}
+
+async function rambleGenerate() {
+  if (!RB.transcript) return;
+  rambleBusy(true, 'Writing...');
+  try {
+    var res = await safeFetch(API + '/rambles/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        transcript: RB.transcript,
+        title: (RB.current || {}).title || '',
+        corpus: (RB.current || {}).corpus || '',
+        style_id: document.getElementById('rambleStyle').value
+      })
+    });
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('ramblePostText').value = d.postText || '';
+    document.getElementById('rambleOutput').style.display = 'block';
+    countRambleChars();
+  } catch (e) { alert('Write: ' + e.message); }
+  finally { rambleBusy(false); }
+}
+
+async function rambleRefine() {
+  var feedback = document.getElementById('refineRamble').value.trim();
+  if (!feedback) return;
+  document.getElementById('loadingRambleRefine').classList.add('active');
+  try {
+    var res = await safeFetch(API + '/refine', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target: 'post',
+        postText: document.getElementById('ramblePostText').value,
+        feedback: feedback,
+        topic: (RB.current || {}).title || '',
+        style_id: document.getElementById('rambleStyle').value
+      })
+    });
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+    if (d.postText) document.getElementById('ramblePostText').value = d.postText;
+    countRambleChars();
+    document.getElementById('refineRamble').value = '';
+  } catch (e) { alert('Refine: ' + e.message); }
+  finally { document.getElementById('loadingRambleRefine').classList.remove('active'); }
+}
+
+// LinkedIn renders no markdown, so anything the model emits as **bold** or a
+// "## heading" pastes in as literal characters. It also collapses runs of more
+// than one blank line. Normalising on copy is the difference between a post
+// that looks written and one that looks like a draft someone forgot to clean.
+function toLinkedInText(s) {
+  return (s || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/(^|[^*])\*(?!\s)([^*\n]+?)\*(?!\*)/g, '$1$2')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .split('\n').map(function(l){ return l.replace(/[ \t]+$/, ''); }).join('\n')
+    .trim();
+}
+
+function copyForLinkedIn(textareaId) {
+  var out = toLinkedInText(document.getElementById(textareaId).value);
+  navigator.clipboard.writeText(out).then(function () {
+    var btn = event && event.target;
+    if (!btn) return;
+    var orig = btn.textContent;
+    btn.textContent = 'Copied for LinkedIn';
+    setTimeout(function(){ btn.textContent = orig; }, 2000);
+  });
 }
 
 async function loadVault() {

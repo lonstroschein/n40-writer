@@ -10,9 +10,13 @@ import time
 import threading
 import functools
 import uuid
+import io
+import zipfile
+import random
 from flask import Flask, request, jsonify, send_from_directory, Response
 
 import anthropic
+import requests
 
 app = Flask(__name__, static_folder=None)
 
@@ -188,6 +192,119 @@ def _has_pro_key():
         return False
     key = (data.get('pro_key') or '').strip()
     return bool(key and key in PRO_KEYS)
+
+
+# ---------------------------------------------------------------------------
+# Rambles — transcripts from Fathom (recent) and Google Drive (the archive)
+#
+# Two sources, one shape. The Drive .docx files turn out to be Fathom exports
+# themselves, so a single parser handles both and a ramble looks the same to
+# the generator wherever it came from.
+#
+# Scope matters more than it looks. A bare Drive full-text search for a phrase
+# like "lost my dad" returns the Gap manuscript, old LinkedIn archives and the
+# content playbook before it returns a single client call — the corpora sit in
+# adjacent folders and share vocabulary. Drive's query language cannot scope to
+# a folder *tree* (`in parents` only matches a direct parent, and rambles sit
+# three levels down), so we keep a metadata-only map of the ramble files —
+# ids and paths, no content — and filter every search through it. It is also
+# what Random Ramble draws from.
+# ---------------------------------------------------------------------------
+RAMBLES_ROOT_ID = os.environ.get('RAMBLES_ROOT_ID', '1Xbh6wn6QQtiokd6sDKlt5aYr8W9FAv9E')
+COMMUNITY_ROOT_ID = os.environ.get('COMMUNITY_ROOT_ID', '1DXPY5CMtVG0G2ObQAnX3QfkbzZdUwcyD')
+FATHOM_API_KEY = os.environ.get('FATHOM_API_KEY', '')
+FATHOM_BASE = 'https://api.fathom.ai/external/v1'
+RECENT_DAYS = int(os.environ.get('RECENT_DAYS', '60'))
+DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+_google_token = {'value': '', 'expires': 0}
+_google_lock = threading.Lock()
+
+
+def _google_access_token():
+    """Exchange the stored refresh token for an access token, cached until it
+    nearly expires. GOOGLE_DRIVE_TOKEN_JSON holds client_id, client_secret and
+    refresh_token — the same shape the dashboard uses for Calendar."""
+    with _google_lock:
+        if _google_token['value'] and time.time() < _google_token['expires']:
+            return _google_token['value']
+        raw = os.environ.get('GOOGLE_DRIVE_TOKEN_JSON', '')
+        if not raw:
+            raise RuntimeError('Google Drive is not connected. Set GOOGLE_DRIVE_TOKEN_JSON.')
+        cfg = json.loads(raw)
+        r = requests.post(cfg.get('token_uri') or 'https://oauth2.googleapis.com/token', data={
+            'client_id': cfg['client_id'],
+            'client_secret': cfg['client_secret'],
+            'refresh_token': cfg['refresh_token'],
+            'grant_type': 'refresh_token',
+        }, timeout=30)
+        if r.status_code != 200:
+            raise RuntimeError('Google refused the refresh token — it may have been revoked.')
+        body = r.json()
+        _google_token['value'] = body['access_token']
+        _google_token['expires'] = time.time() + int(body.get('expires_in', 3600)) - 120
+        return _google_token['value']
+
+
+def _drive(path, **params):
+    r = requests.get(f'https://www.googleapis.com/drive/v3/{path}',
+                     headers={'Authorization': 'Bearer ' + _google_access_token()},
+                     params=params, timeout=60)
+    r.raise_for_status()
+    return r.json()
+
+
+def docx_to_text(blob):
+    """Pull readable text out of a .docx without a parsing library — a .docx is
+    a zip, and the paragraph text lives in w:t elements."""
+    with zipfile.ZipFile(io.BytesIO(blob)) as z:
+        xml = z.read('word/document.xml').decode('utf8', 'replace')
+    lines = []
+    for para in re.findall(r'<w:p[ >].*?</w:p>', xml, re.S):
+        txt = ''.join(re.findall(r'<w:t[^>]*>([^<]*)</w:t>', para)).strip()
+        if txt:
+            lines.append(txt)
+    return '\n'.join(lines)
+
+
+def _crawl_drive_folder(folder_id, corpus, out, depth=0, trail=''):
+    """Walk a folder tree collecting transcript files. Depth-capped because the
+    archive nests year/person/session and nothing legitimate goes deeper."""
+    if depth > 4:
+        return
+    page = None
+    while True:
+        res = _drive('files', q=f"'{folder_id}' in parents and trashed = false",
+                     fields='nextPageToken, files(id, name, mimeType, modifiedTime)',
+                     pageSize=200, pageToken=page or '')
+        for f in res.get('files', []):
+            if f['mimeType'] == 'application/vnd.google-apps.folder':
+                _crawl_drive_folder(f['id'], corpus, out, depth + 1,
+                                    f"{trail}/{f['name']}" if trail else f['name'])
+            elif f['mimeType'] == DOCX_MIME:
+                out.append({
+                    'id': f['id'], 'name': f['name'], 'path': trail,
+                    'corpus': corpus,
+                    'person': trail.split('/')[1] if '/' in trail else trail,
+                    'date': (re.search(r'(\d{4})[.\-](\d{2})[.\-](\d{2})', f['name']) or
+                             re.search(r'(\d{4})-(\d{2})-(\d{2})', f['name'])),
+                    'modified': f.get('modifiedTime', ''),
+                })
+        page = res.get('nextPageToken')
+        if not page:
+            return
+
+
+def build_rambles_index():
+    """Metadata only — ids, names, paths. No transcript text is stored."""
+    out = []
+    _crawl_drive_folder(RAMBLES_ROOT_ID, 'client-ramble', out)
+    _crawl_drive_folder(COMMUNITY_ROOT_ID, 'community', out)
+    for row in out:
+        m = row.get('date')
+        row['date'] = '-'.join(m.groups()) if m else ''
+    store_write('rambles_index', {'built': time.strftime('%Y-%m-%d %H:%M:%S'), 'files': out})
+    return out
 
 
 def extract_text(msg):
@@ -1639,6 +1756,198 @@ No markdown fences. No explanation. Just the JSON.""",
     )
         text = extract_text(msg)
         return parse_json_response(text)
+
+    return run_as_job(do_call)
+
+
+@app.route('/api/rambles/status')
+@require_admin_key
+def rambles_status():
+    """What is wired up, so the tab can say so instead of failing silently."""
+    idx = store_read('rambles_index', {})
+    return jsonify({
+        'fathom': bool(FATHOM_API_KEY),
+        'drive': bool(os.environ.get('GOOGLE_DRIVE_TOKEN_JSON')),
+        'indexed': len(idx.get('files', [])),
+        'built': idx.get('built', ''),
+        'recent_days': RECENT_DAYS,
+    })
+
+
+@app.route('/api/rambles/reindex', methods=['POST'])
+@require_admin_key
+def rambles_reindex():
+    """Rebuild the metadata map. Minutes, not seconds — it walks the tree."""
+    def do_call():
+        files = build_rambles_index()
+        return {'indexed': len(files)}
+    return run_as_job(do_call)
+
+
+@app.route('/api/rambles/recent')
+@require_admin_key
+def rambles_recent():
+    """Recent Ramble — anything Fathom recorded in the last RECENT_DAYS."""
+    if not FATHOM_API_KEY:
+        return jsonify({'error': 'Fathom is not connected. Set FATHOM_API_KEY.'}), 400
+    after = time.strftime('%Y-%m-%dT%H:%M:%SZ',
+                          time.gmtime(time.time() - RECENT_DAYS * 86400))
+    items, cursor = [], None
+    for _ in range(12):
+        params = {'created_after': after, 'include_summary': 'true'}
+        if cursor:
+            params['cursor'] = cursor
+        r = requests.get(f'{FATHOM_BASE}/meetings',
+                         headers={'X-Api-Key': FATHOM_API_KEY},
+                         params=params, timeout=45)
+        if r.status_code == 429:
+            time.sleep(int(r.headers.get('Retry-After') or 5))
+            continue
+        r.raise_for_status()
+        body = r.json()
+        items += body.get('items', [])
+        cursor = body.get('next_cursor')
+        if not cursor:
+            break
+    out = [{
+        'source': 'fathom',
+        'id': str(m.get('id') or m.get('meeting_id') or ''),
+        'title': m.get('title') or m.get('meeting_title') or 'Untitled call',
+        'date': (m.get('recording_start_time') or m.get('created_at') or '')[:10],
+    } for m in items]
+    out.sort(key=lambda x: x['date'], reverse=True)
+    return jsonify({'rambles': out, 'days': RECENT_DAYS})
+
+
+@app.route('/api/rambles/search')
+@require_admin_key
+def rambles_search():
+    """Search the archive. Drive does the full-text matching; the metadata map
+    keeps results inside actual rambles instead of returning the manuscript."""
+    q = (request.args.get('q') or '').strip()
+    if not q:
+        return jsonify({'error': 'Type something to search for.'}), 400
+    idx = store_read('rambles_index', {})
+    known = {f['id']: f for f in idx.get('files', [])}
+    if not known:
+        return jsonify({'error': 'No ramble index yet. Run Reindex first.'}), 400
+
+    safe = q.replace("\\", "\\\\").replace("'", "\\'")
+    res = _drive('files',
+                 q=f"fullText contains '{safe}' and mimeType = '{DOCX_MIME}' and trashed = false",
+                 fields='files(id, name, modifiedTime)', pageSize=100)
+    hits = []
+    for f in res.get('files', []):
+        meta = known.get(f['id'])
+        if not meta:
+            continue           # outside the ramble corpora — drop it
+        hits.append({'source': 'drive', 'id': f['id'], 'title': f['name'],
+                     'date': meta.get('date', ''), 'person': meta.get('person', ''),
+                     'corpus': meta.get('corpus', ''), 'path': meta.get('path', '')})
+    hits.sort(key=lambda h: h['date'], reverse=True)
+    return jsonify({'rambles': hits, 'query': q, 'searched': len(known)})
+
+
+@app.route('/api/rambles/random')
+@require_admin_key
+def rambles_random():
+    """Random Ramble — one transcript at random from the archive."""
+    idx = store_read('rambles_index', {})
+    files = [f for f in idx.get('files', []) if f.get('corpus') == 'client-ramble']
+    if not files:
+        return jsonify({'error': 'No ramble index yet. Run Reindex first.'}), 400
+    pick = random.choice(files)
+    return jsonify({'ramble': {'source': 'drive', 'id': pick['id'], 'title': pick['name'],
+                               'date': pick.get('date', ''), 'person': pick.get('person', ''),
+                               'corpus': pick.get('corpus', ''), 'path': pick.get('path', '')}})
+
+
+@app.route('/api/rambles/transcript', methods=['POST'])
+@require_admin_key
+def rambles_transcript():
+    """Fetch one transcript. Only now does anything get downloaded."""
+    data = request.json or {}
+    source, rid = data.get('source'), data.get('id')
+    if not rid:
+        return jsonify({'error': 'No ramble selected.'}), 400
+
+    def do_call():
+        if source == 'fathom':
+            r = requests.get(f'{FATHOM_BASE}/meetings',
+                             headers={'X-Api-Key': FATHOM_API_KEY},
+                             params={'include_transcript': 'true'}, timeout=90)
+            r.raise_for_status()
+            for m in r.json().get('items', []):
+                if str(m.get('id') or m.get('meeting_id')) == str(rid):
+                    tr = m.get('transcript')
+                    text = tr if isinstance(tr, str) else '\n'.join(
+                        f"{s.get('speaker','')}: {s.get('text','')}" for s in (tr or []))
+                    return {'text': text, 'title': m.get('title') or ''}
+            return {'error': 'That call is no longer in the recent window.'}
+        blob = requests.get(f'https://www.googleapis.com/drive/v3/files/{rid}',
+                            headers={'Authorization': 'Bearer ' + _google_access_token()},
+                            params={'alt': 'media'}, timeout=120).content
+        return {'text': docx_to_text(blob)}
+
+    return run_as_job(do_call)
+
+
+@app.route('/api/rambles/generate', methods=['POST'])
+@rate_limited
+@require_admin_key
+def rambles_generate():
+    """Write a LinkedIn post from a ramble transcript.
+
+    Anonymisation is in the prompt, not a later cleanup pass: these are real
+    client conversations, and the rule is first name and hometown only, with
+    written approval before anything identifying goes out. Making that a
+    default of the generator means the unsafe version never gets written in
+    the first place.
+    """
+    data = request.json or {}
+    transcript = (data.get('transcript') or '').strip()
+    if not transcript:
+        return jsonify({'error': 'No transcript provided.'}), 400
+
+    avatar, voice, cal, algo, user_name = get_contexts(data)
+    client = get_client()
+    is_client_call = data.get('corpus') != 'community'
+
+    privacy = ("""
+## PRIVACY — non-negotiable
+This is a real private conversation with a real person.
+- Use a first name only, never a surname. A hometown is allowed; nothing else that identifies them.
+- No employer, job title, school, or any detail that would single them out.
+- Never imply the person endorsed anything.
+- If the story cannot be told without identifying them, tell it as a composite
+  and say nothing that pins it to one person.
+""" if is_client_call else "")
+
+    def do_call():
+        msg = call_model(client,
+            model=HEAVY_MODEL, max_tokens=6000,
+            system=f"""You are writing a LinkedIn post for {user_name}, drawn from a real conversation.
+
+{avatar}
+
+{voice}
+
+{cal}
+
+{algo}
+{privacy}
+Find the one moment in this transcript that lands hardest — a line the person
+said, a turn they took, a thing they admitted. Build the post around that. Do
+not summarise the call and do not list what was discussed.
+
+Target 1,100-1,500 characters. Open with a hook under 140 characters. End with
+a question that invites a story. No URLs, no links, no hashtags beyond three.
+
+Return ONLY valid JSON: {{"postText": "the post"}}""",
+            messages=[{'role': 'user',
+                       'content': f'Conversation: {data.get("title") or "untitled"}\n\n{transcript[:120000]}'}]
+        )
+        return parse_json_response(extract_text(msg))
 
     return run_as_job(do_call)
 
