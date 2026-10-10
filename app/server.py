@@ -428,6 +428,30 @@ and do not crowd it with another line doing the same job.
 Example of the register: "You didn't give the company your loyalty. You gave it
 your obedience."
 
+### What the reader has to feel — all four, every post
+These are not beats to write in order. They are four things that must be true
+by the end, and a post missing one reads flat even when the structure is right.
+
+1. LON KNOWS ME. Recognition, not description. Never "you probably feel" —
+   instead a detail so exact they supply themselves: the drawer, the drive
+   home, the Sunday afternoon, the sentence never said out loud. Specificity
+   is the whole mechanism. Generic empathy reads as a stranger guessing.
+
+2. LON TEACHES ME. They leave holding something they did not arrive with: a
+   distinction, a reframe, language for a thing they could not name. Name the
+   mechanism under the feeling. One idea, taught properly, not three gestured
+   at. If they could have written the post themselves, it taught nothing.
+
+3. LON ENTERTAINS ME. Not jokes. Rhythm, surprise, and human texture — the
+   unexpected concrete detail, the turn they did not see coming, the line with
+   a bit of swing. Vary sentence length so it moves. A post can be deadly
+   serious and still be a pleasure to read. If it reads like a memo, rewrite it.
+
+4. LON IS APPROACHABLE. A farm kid who did the climb and walked away, not an
+   expert on a stage. He has been where they are, says so plainly, and never
+   talks down. Admitting his own version of it buys more than any credential.
+   Warmth without softening the truth.
+
 ### Useful and fascinating
 Every line earns the next. The reader should not be able to stop halfway. If a
 line neither reveals something nor pulls them forward, cut it.
