@@ -287,43 +287,82 @@ def docx_to_text(blob):
     return '\n'.join(lines)
 
 
-def _crawl_drive_folder(folder_id, corpus, out, depth=0, trail=''):
-    """Walk a folder tree collecting transcript files. Depth-capped because the
-    archive nests year/person/session and nothing legitimate goes deeper."""
-    if depth > 4:
-        return
-    page = None
-    while True:
-        res = _drive('files', q=f"'{folder_id}' in parents and trashed = false",
-                     fields='nextPageToken, files(id, name, mimeType, modifiedTime)',
-                     pageSize=200, pageToken=page or '')
-        for f in res.get('files', []):
-            if f['mimeType'] == 'application/vnd.google-apps.folder':
-                _crawl_drive_folder(f['id'], corpus, out, depth + 1,
-                                    f"{trail}/{f['name']}" if trail else f['name'])
-            elif f['mimeType'] == DOCX_MIME:
-                out.append({
-                    'id': f['id'], 'name': f['name'], 'path': trail,
-                    'corpus': corpus,
-                    'person': trail.split('/')[1] if '/' in trail else trail,
-                    'date': (re.search(r'(\d{4})[.\-](\d{2})[.\-](\d{2})', f['name']) or
-                             re.search(r'(\d{4})-(\d{2})-(\d{2})', f['name'])),
-                    'modified': f.get('modifiedTime', ''),
-                })
+def _drive_list_all(q, fields, cap=200):
+    """Page a Drive query to exhaustion."""
+    items, page = [], None
+    for _ in range(cap):
+        res = _drive('files', q=q, fields=f'nextPageToken, files({fields})',
+                     pageSize=1000, pageToken=page or '',
+                     corpora='user', includeItemsFromAllDrives='false',
+                     supportsAllDrives='false')
+        items += res.get('files', [])
         page = res.get('nextPageToken')
         if not page:
-            return
+            break
+    return items
 
 
 def build_rambles_index():
-    """Metadata only — ids, names, paths. No transcript text is stored."""
+    """Map the archive with two sweeps instead of a walk.
+
+    Walking the tree costs one API call per folder, and the archive has well
+    over a thousand of them — roughly 2,000 sequential calls, ten to twenty
+    minutes, long enough that the browser gives up and the job gets reaped
+    before it can hand anything back.
+
+    Listing every folder once and every .docx once is ~40 calls. Parentage
+    comes back with the files, so the tree is reassembled in memory rather
+    than by asking Drive to walk it. Same result, roughly two orders of
+    magnitude less waiting.
+    """
+    folders = _drive_list_all(
+        "mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+        'id, name, parents')
+    kids = {f['id']: (f.get('name', ''), (f.get('parents') or [None])[0]) for f in folders}
+
+    def ancestry(fid, limit=12):
+        """Walk up to a known root; returns (corpus, trail) or None if the file
+        sits outside both ramble trees."""
+        trail = []
+        seen = set()
+        while fid and fid not in seen and len(trail) <= limit:
+            seen.add(fid)
+            if fid == RAMBLES_ROOT_ID:
+                return 'client-ramble', '/'.join(reversed(trail))
+            if fid == COMMUNITY_ROOT_ID:
+                return 'community', '/'.join(reversed(trail))
+            node = kids.get(fid)
+            if not node:
+                return None
+            trail.append(node[0])
+            fid = node[1]
+        return None
+
+    docs = _drive_list_all(
+        f"mimeType = '{DOCX_MIME}' and trashed = false",
+        'id, name, parents, modifiedTime')
+
     out = []
-    _crawl_drive_folder(RAMBLES_ROOT_ID, 'client-ramble', out)
-    _crawl_drive_folder(COMMUNITY_ROOT_ID, 'community', out)
-    for row in out:
-        m = row.get('date')
-        row['date'] = '-'.join(m.groups()) if m else ''
-    store_write('rambles_index', {'built': time.strftime('%Y-%m-%d %H:%M:%S'), 'files': out})
+    for f in docs:
+        parent = (f.get('parents') or [None])[0]
+        if not parent:
+            continue
+        place = ancestry(parent)
+        if not place:
+            continue                      # outside the ramble corpora
+        corpus, trail = place
+        m = re.search(r'(\d{4})[.\-_](\d{2})[.\-_](\d{2})', f['name'])
+        out.append({
+            'id': f['id'], 'name': f['name'], 'path': trail, 'corpus': corpus,
+            'person': trail.split('/')[1] if '/' in trail else trail,
+            'date': '-'.join(m.groups()) if m else '',
+            'modified': f.get('modifiedTime', ''),
+        })
+
+    store_write('rambles_index', {'built': time.strftime('%Y-%m-%d %H:%M:%S'),
+                                  'folders_seen': len(folders),
+                                  'docs_seen': len(docs),
+                                  'files': out})
     return out
 
 
