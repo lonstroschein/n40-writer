@@ -34,7 +34,7 @@ window.addEventListener('load', function() {
 });
 </script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Playfair+Display:wght@700;800&family=DM+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=DM+Mono:wght@400;500&display=swap');
 
   * { margin:0; padding:0; box-sizing:border-box; }
 
@@ -66,7 +66,8 @@ window.addEventListener('load', function() {
 
     --display: 'Oswald', sans-serif;
     --serif: 'Playfair Display', Georgia, serif;
-    --body: 'Newsreader', Georgia, serif;
+    --body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+    --reading: 'Newsreader', Georgia, serif;
     --mono: 'DM Mono', monospace;
 
     /* Legacy names — values remapped to the brand. Paper base, matching the
@@ -95,7 +96,8 @@ window.addEventListener('load', function() {
 
   body {
     font-family: var(--body);
-    font-size: 16.5px;
+    font-size: 15.5px;
+    -webkit-font-smoothing: antialiased;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
@@ -141,7 +143,7 @@ window.addEventListener('load', function() {
   }
   nav button {
     background:none; border:none; padding:16px 28px; color:var(--text-dim);
-    font-family:'Newsreader',Georgia,serif; font-size:14px; font-weight:500;
+    font-family:var(--display); font-size:14px; font-weight:500;
     cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s;
   }
   nav button:hover { color:var(--text); }
@@ -169,7 +171,7 @@ window.addEventListener('load', function() {
   textarea, input[type="text"] {
     width:100%; background:var(--bg-input); border:1px solid var(--border);
     border-radius:8px; padding:16px 20px; color:var(--text);
-    font-family:'Newsreader',Georgia,serif; font-size:16px; line-height:1.6;
+    font-family:var(--body); font-size:16.5px; line-height:1.75;
     resize:vertical; transition:border-color 0.2s;
   }
   textarea:focus, input[type="text"]:focus { outline:none; border-color:var(--border-active); }
@@ -179,7 +181,7 @@ window.addEventListener('load', function() {
 
   .btn-row { display:flex; gap:12px; margin-top:24px; justify-content:flex-end; }
   .btn {
-    padding:12px 32px; border-radius:8px; font-family:'Newsreader',Georgia,serif;
+    padding:12px 32px; border-radius:8px; font-family:var(--display);
     font-size:14px; font-weight:600; cursor:pointer; border:none; transition:all 0.2s;
   }
   .btn-primary { background:var(--gold); color:var(--bg); }
@@ -1009,11 +1011,13 @@ window.addEventListener('load', function() {
     <div class="card" id="rambleInsights" style="padding:20px 28px; margin-bottom:16px;">
       <div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">What stood out</div>
       <div id="rambleInsightsBody" style="font-size:14px; color:var(--text-dim);">Reading the call...</div>
+      <div id="rambleWriteRow" style="display:none; margin-top:18px; padding-top:16px; border-top:1px solid var(--border);">
+        <button class="btn btn-primary" onclick="rambleGenerate()">Write LinkedIn Post</button>
+        <span id="rambleWriteHint" style="margin-left:12px; font-size:12.5px; color:var(--text-faint);">Pick a theme above, or write your own.</span>
+      </div>
     </div>
 
-    <div class="btn-row" style="justify-content:flex-start; margin-bottom:16px;">
-      <button class="btn btn-primary" onclick="rambleGenerate()">Write LinkedIn Post</button>
-    </div>
+
 
     <div class="post-box" id="rambleOutput" style="display:none;">
       <h3>LinkedIn Post</h3>
@@ -1672,7 +1676,7 @@ function colors(mode) {
 function baseCSS(c) {
   return `@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{width:1080px;height:1080px;background:${c.bg};font-family:'Newsreader',Georgia,serif;color:${c.text};padding:72px 72px 52px;display:flex;flex-direction:column;}
+  body{width:1080px;height:1080px;background:${c.bg};font-family:var(--display);color:${c.text};padding:72px 72px 52px;display:flex;flex-direction:column;}
   .tag{font-family:'Oswald',sans-serif;font-size:15px;color:${c.gold};text-transform:uppercase;letter-spacing:4px;margin-bottom:20px;}
   h1{font-size:64px;font-weight:800;line-height:1.08;margin-bottom:16px;}
   .sub{font-size:28px;color:${c.dim};margin-bottom:24px;line-height:1.25;font-weight:500;}
@@ -1702,7 +1706,7 @@ function buildInfographicHTML(template, info, mode) {
       const line = info.quote || info.items?.[0] || info.title || '';
       const css = `@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap');
         *{margin:0;padding:0;box-sizing:border-box;}
-        body{width:1080px;height:1080px;position:relative;font-family:'Newsreader',Georgia,serif;overflow:hidden;}
+        body{width:1080px;height:1080px;position:relative;font-family:var(--display);overflow:hidden;}
         .bg{position:absolute;inset:0;background:url('/images/bg-field.png') center/cover no-repeat;}
         .overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.75) 100%);}
         .content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:0 80px 120px;}
@@ -2217,7 +2221,7 @@ function buildBrandedImageHTML(data, photo) {
   return `<!DOCTYPE html><html><head><style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
     *{margin:0;padding:0;box-sizing:border-box;}
-    body{width:1080px;height:1080px;position:relative;font-family:'Newsreader',Georgia,serif;overflow:hidden;}
+    body{width:1080px;height:1080px;position:relative;font-family:var(--display);overflow:hidden;}
     .bg{position:absolute;inset:0;background:url('${bgData}') center/cover no-repeat;}
     .overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.4) 40%,rgba(0,0,0,0.5) 100%);}
     .content{position:absolute;top:180px;left:80px;right:120px;z-index:2;}
@@ -2261,7 +2265,7 @@ function buildCarouselHTML(data) {
   return `<!DOCTYPE html><html><head><style>
     @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap');
     *{margin:0;padding:0;box-sizing:border-box;}
-    body{width:1080px;font-family:'Newsreader',Georgia,serif;background:#101109;color:#F7F6F2;}
+    body{width:1080px;font-family:var(--display);background:#101109;color:#F7F6F2;}
     .slide{width:1080px;height:1080px;padding:88px 96px 80px;display:flex;flex-direction:column;position:relative;page-break-after:always;}
     .slide-tag{font-family:'Oswald',sans-serif;font-size:18px;color:#7C90E0;text-transform:uppercase;letter-spacing:3px;margin-bottom:24px;}
     .slide-title{font-size:56px;font-weight:700;line-height:1.15;flex:1;display:flex;align-items:center;}
@@ -2932,7 +2936,7 @@ function toggleVaultExpand(i) {
 }
 
 // ─── RAMBLES ────────────────────────────────────────────────────────────────
-var RB = { current: null, transcript: '', results: [] };
+var RB = { current: null, transcript: '', results: [], themes: [], selectedTheme: null };
 
 function rambleBusy(on, text) {
   var el = document.getElementById('loadingRambles');
@@ -3103,25 +3107,65 @@ async function loadRambleInsights() {
         flag + '</div>';
     }).join('');
 
-    var themes = (d.themes || []).map(function (t) {
-      return '<div style="margin-bottom:12px;">' +
+    RB.themes = d.themes || [];
+    var themes = RB.themes.map(function (t, i) {
+      return '<label style="display:block; margin-bottom:10px; padding:12px 14px; border:1px solid var(--border); border-radius:8px; cursor:pointer;" onclick="selectTheme(' + i + ')">' +
+        '<div style="display:flex; gap:10px; align-items:flex-start;">' +
+        '<input type="radio" name="rambleTheme" id="themeOpt' + i + '" style="margin-top:4px;">' +
+        '<div style="flex:1; min-width:0;">' +
         '<div style="font-size:14px; font-weight:600; color:var(--gold);">' + escapeHTML(t.theme || '') + '</div>' +
-        '<div style="font-size:13px; color:var(--text-dim); line-height:1.55;">' + escapeHTML(t.why || '') + '</div>' +
-        '</div>';
+        '<div style="font-size:13px; color:var(--text-dim); line-height:1.55; margin-top:2px;">' + escapeHTML(t.why || '') + '</div>' +
+        '</div></div></label>';
     }).join('');
+    themes += '<label style="display:block; padding:12px 14px; border:1px solid var(--border); border-radius:8px; cursor:pointer;" onclick="selectTheme(-1)">' +
+      '<div style="display:flex; gap:10px; align-items:flex-start;">' +
+      '<input type="radio" name="rambleTheme" id="themeOptOwn" style="margin-top:4px;">' +
+      '<div style="flex:1; min-width:0;">' +
+      '<div style="font-size:14px; font-weight:600; color:var(--gold);">My own angle</div>' +
+      '<input type="text" id="themeOwnText" placeholder="What do you want this post to be about?" ' +
+      'style="margin-top:8px;" onfocus="selectTheme(-1)">' +
+      '</div></div></label>';
 
     body.innerHTML =
       '<div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Three quotes</div>' +
       (quotes || '<div style="color:var(--text-faint);">None found.</div>') +
       '<div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin:18px 0 10px;">Two themes</div>' +
       (themes || '<div style="color:var(--text-faint);">None found.</div>');
+    RB.selectedTheme = null;
+    document.getElementById('rambleWriteRow').style.display = 'block';
   } catch (e) {
     body.innerHTML = '<span style="color:var(--danger);">Could not read the call: ' + escapeHTML(e.message) + '</span>';
   }
 }
 
+function selectTheme(i) {
+  RB.selectedTheme = i;
+  var el = document.getElementById(i === -1 ? 'themeOptOwn' : 'themeOpt' + i);
+  if (el) el.checked = true;
+  var hint = document.getElementById('rambleWriteHint');
+  if (hint) hint.textContent = i === -1 ? 'Writing from your own angle.' : 'Writing from the theme you picked.';
+}
+
+function chosenAngle() {
+  if (RB.selectedTheme === -1) {
+    var own = document.getElementById('themeOwnText');
+    return own ? own.value.trim() : '';
+  }
+  var t = (RB.themes || [])[RB.selectedTheme];
+  return t ? (t.theme + (t.why ? ' — ' + t.why : '')) : '';
+}
+
 async function rambleGenerate() {
   if (!RB.transcript) return;
+  var angle = chosenAngle();
+  if (RB.selectedTheme === undefined || RB.selectedTheme === null) {
+    alert('Pick one of the themes, or choose "My own angle" and type one.');
+    return;
+  }
+  if (RB.selectedTheme === -1 && !angle) {
+    alert('Type the angle you want this post to take.');
+    return;
+  }
   rambleBusy(true, 'Writing...');
   try {
     var res = await safeFetch(API + '/rambles/generate', {
@@ -3130,6 +3174,7 @@ async function rambleGenerate() {
         transcript: RB.transcript,
         title: (RB.current || {}).title || '',
         corpus: (RB.current || {}).corpus || '',
+        angle: angle,
         style_id: document.getElementById('rambleStyle').value
       })
     });

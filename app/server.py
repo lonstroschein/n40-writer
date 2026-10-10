@@ -2052,6 +2052,18 @@ def rambles_generate():
     client = get_client()
     is_client_call = data.get('corpus') != 'community'
 
+    # Lon picks the angle after reading the call, so the post is built to the
+    # point he wants to make rather than to whatever the model found most
+    # interesting on its own.
+    angle = (data.get('angle') or '').strip()
+    angle_block = (f'''## THE ANGLE — this is what the post is about
+{angle}
+
+Everything below serves that. If the transcript offers something more
+striking that does not serve it, leave it out.
+
+''' if angle else '')
+
     privacy = ("""
 ## PRIVACY — non-negotiable
 This is a real private conversation with a real person.
@@ -2075,9 +2087,9 @@ This is a real private conversation with a real person.
 
 {algo}
 {privacy}
-Find the one moment in this transcript that lands hardest — a line the person
-said, a turn they took, a thing they admitted. Build the post around that. Do
-not summarise the call and do not list what was discussed.
+{angle_block}Find the one moment in this transcript that serves that angle hardest — a line
+the person said, a turn they took, a thing they admitted. Build the post around
+that. Do not summarise the call and do not list what was discussed.
 
 Target 1,100-1,500 characters. Open with a hook under 140 characters. End with
 a question that invites a story. No URLs, no links, no hashtags beyond three.
