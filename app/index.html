@@ -78,9 +78,15 @@ window.addEventListener('load', function() {
     --gold: var(--blue);
     --gold-light: var(--blue-on-dark);
     --gold-dim: var(--blue);
+    /* Reading text is near-black, never a colour — the standard's hard rule,
+       and the reason it exists. Slate on cream measured 1.94:1 against a 4.5
+       minimum and was carrying body copy in 39 places; taupe was 5.39:1. Both
+       are fine as the standard's "caption neutrals" on paper stock, but not as
+       sentence text on a screen for a reader over 50. These keep the three-step
+       hierarchy and all clear AAA. Blue stays for headlines and labels only. */
     --text: var(--ink);
-    --text-dim: var(--taupe);
-    --text-faint: var(--slate);
+    --text-dim: #24251C;
+    --text-faint: #3C3D32;
     --border: rgba(64,89,173,0.18);
     --border-active: rgba(64,89,173,0.45);
     --danger: #E05050;
@@ -224,7 +230,7 @@ window.addEventListener('load', function() {
     padding:28px; cursor:pointer; transition:all 0.2s;
   }
   .template-card:hover { border-color:var(--border-active); transform:translateY(-2px); }
-  .template-card.selected { border-color:var(--gold); background:rgba(212,160,64,0.05); }
+  .template-card.selected { border-color:var(--gold); background:rgba(64,89,173,0.05); }
   .template-card h3 { font-size:16px; font-weight:600; margin-bottom:6px; }
   .template-card p { font-size:13px; color:var(--text-dim); line-height:1.5; }
   .template-card .t-best {
@@ -283,9 +289,9 @@ window.addEventListener('load', function() {
   }
   td {
     padding:14px 20px; font-size:14px; color:var(--text-dim);
-    border-bottom:1px solid rgba(212,160,64,0.08);
+    border-bottom:1px solid rgba(64,89,173,0.08);
   }
-  tr:hover td { background:rgba(212,160,64,0.03); }
+  tr:hover td { background:rgba(64,89,173,0.03); }
 
   /* ─── MODE TOGGLE ─── */
   .mode-toggle { display:flex; gap:8px; margin-top:20px; }
@@ -560,7 +566,7 @@ window.addEventListener('load', function() {
 
         <!-- REFINE ALL -->
         <div style="margin-top:24px;">
-          <div class="refine-bar" style="background:rgba(212,160,64,0.08); border:1px solid var(--border);">
+          <div class="refine-bar" style="background:rgba(64,89,173,0.08); border:1px solid var(--border);">
             <input type="text" id="refineAllInput" placeholder="Refine EVERYTHING at once... (e.g., 'reframe around the spouse conversation')" onkeydown="if(event.key==='Enter')refineContent('all')">
             <button class="btn btn-primary" onclick="refineContent('all')">Refine All</button>
           </div>
@@ -2002,7 +2008,7 @@ function renderLibrary() {
     <div class="card" style="cursor:pointer; margin:0;" onclick="loadLibraryItem(${i.id})">
       <div style="font-size:11px; font-family:'DM Mono',monospace; color:var(--text-faint); margin-bottom:8px;">${i.date}</div>
       <h4 style="font-size:16px; margin-bottom:6px;">${i.topic}</h4>
-      <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--gold-dim); background:rgba(212,160,64,0.1); padding:3px 10px; border-radius:4px;">${i.template}</span>
+      <span style="font-size:11px; font-family:'DM Mono',monospace; color:var(--gold-dim); background:rgba(64,89,173,0.1); padding:3px 10px; border-radius:4px;">${i.template}</span>
     </div>
   `).join('');
 }
