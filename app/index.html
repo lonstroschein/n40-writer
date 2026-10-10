@@ -1021,6 +1021,13 @@ window.addEventListener('load', function() {
       <div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">What stood out</div>
       <div id="rambleInsightsBody" style="font-size:14px; color:var(--text-dim);">Reading the call...</div>
       <div id="rambleWriteRow" style="display:none; margin-top:18px; padding-top:16px; border-top:1px solid var(--border);">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
+          <span style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Length:</span>
+          <button class="pill" id="len-short" onclick="setRambleLength('short',this)">Short</button>
+          <button class="pill active" id="len-medium" onclick="setRambleLength('medium',this)">Medium</button>
+          <button class="pill" id="len-long" onclick="setRambleLength('long',this)">Long form</button>
+          <span id="rambleLengthHint" style="font-size:12px; color:var(--text-faint);">900-1,500 characters</span>
+        </div>
         <button class="btn btn-primary" onclick="rambleGenerate()">Write LinkedIn Post</button>
         <span id="rambleWriteHint" style="margin-left:12px; font-size:12.5px; color:var(--text-faint);">Pick a theme above, or write your own.</span>
       </div>
@@ -2945,7 +2952,7 @@ function toggleVaultExpand(i) {
 }
 
 // ─── RAMBLES ────────────────────────────────────────────────────────────────
-var RB = { current: null, transcript: '', results: [], themes: [], selectedTheme: null };
+var RB = { current: null, transcript: '', results: [], themes: [], selectedTheme: null, length: 'medium' };
 
 function rambleBusy(on, text) {
   var el = document.getElementById('loadingRambles');
@@ -3147,6 +3154,14 @@ async function loadRambleInsights() {
   }
 }
 
+function setRambleLength(v, btn) {
+  RB.length = v;
+  ['len-short','len-medium','len-long'].forEach(function(id){ document.getElementById(id).classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('rambleLengthHint').textContent =
+    { short: '600-1,000 characters', medium: '900-1,500 characters', 'long': '1,400-2,200 characters' }[v];
+}
+
 function selectTheme(i) {
   RB.selectedTheme = i;
   var el = document.getElementById(i === -1 ? 'themeOptOwn' : 'themeOpt' + i);
@@ -3184,6 +3199,7 @@ async function rambleGenerate() {
         title: (RB.current || {}).title || '',
         corpus: (RB.current || {}).corpus || '',
         angle: angle,
+        length: RB.length,
         style_id: document.getElementById('rambleStyle').value
       })
     });

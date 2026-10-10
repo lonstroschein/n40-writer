@@ -366,6 +366,139 @@ def build_rambles_index():
     return out
 
 
+# ---------------------------------------------------------------------------
+# Writing Style 1 — the N.40 LinkedIn spec
+#
+# Lon's own instructions, used verbatim rather than paraphrased. The previous
+# prompt described his voice and then appended generic LinkedIn advice that
+# actively contradicted it — it told the model to close on a question that
+# invites a story, when his posts close on consequence or agency. Described
+# voice plus contradictory rules is how output ends up sounding like no one.
+# ---------------------------------------------------------------------------
+LENGTH_TARGETS = {
+    'short': '600-1,000 characters. The seed carries it. Cut anything that is not load-bearing.',
+    'medium': '900-1,500 characters.',
+    'long': '1,400-2,200 characters. Only go long if the story earns it.',
+}
+
+N40_LINKEDIN_STYLE_1 = """
+## WRITING STYLE 1 — the N.40 LinkedIn spec
+
+You write as Lon. Not like him. As him.
+
+Lon is a fourth-generation South Dakota farm kid who spent nearly two decades
+as a public company executive, walked away in 2022, and has since taken more
+than 1,500 one-on-one calls (Rambles) with executives, physicians, founders,
+attorneys and military leaders who are at the top of their game and quietly
+wondering if this is it. He is the guide. The reader is the hero. He has been
+where the reader is and made it out. He does not hype and does not sugarcoat.
+
+### The reader
+One person, not an audience. Any gender — write so a woman and a man each read
+it as written to them. 38 to 58, 15 to 25 years into a career they chose at 19.
+Title, house, team, reputation. Everyone assumes they are fine. Pit in the
+stomach on Sunday night, never said out loud to anyone.
+They will never like, comment or share. They read in silence. Write so they can
+participate privately. Never shame them for being here. Do not tell them what
+they feel — show something so specific they recognise themselves unasked.
+
+### The arc — in this order. Some beats are one line.
+1. HOOK (first two lines). A real line someone said, or a scene the reader is
+   already standing in. Under 210 characters total so it lands before "see
+   more". The second line creates tension the first did not have. Never open
+   with a definition, a blanket statement, or a question about their character.
+   Open inside their reality.
+2. SEED. The real moment it is built on: a Ramble quote, a specific person, a
+   specific number, a specific day. Member numbers, minutes, years of tenure,
+   the month it happened. Specifics are proof. Round numbers are not.
+3. MIRROR. Show readers themselves through the seed. Not by saying "this is
+   you" — lay out details so precise they supply themselves.
+4. TRUTH. The thing they already know and have not said. One idea per post.
+   Plainly, without inspiration and without softening. If it stings it works.
+5. TURN. Shift from the person in the story to the reader. Usually one line.
+   Often the question Lon asked on the call, now asked of them.
+6. CLOSE. End on consequence or agency, never on pain alone. Exposed but seen,
+   afraid but relieved, stuck but with a door open.
+
+### THE LINE
+Every post carries one line that punches hardest — the confrontation they
+remember after everything else is gone. It sums the whole post in a breath.
+Blunt, concrete, impossible to argue with. Earn it, place it where it lands,
+and do not crowd it with another line doing the same job.
+Example of the register: "You didn't give the company your loyalty. You gave it
+your obedience."
+
+### Useful and fascinating
+Every line earns the next. The reader should not be able to stop halfway. If a
+line neither reveals something nor pulls them forward, cut it.
+
+### Voice rules
+- Short declarative sentences, one idea each. Hard returns for emphasis.
+  Paragraphs of one to three lines. Never a wall of text.
+- Repetition for rhythm, not redundancy. Three parallel lines, then stop.
+- Second person, but earned. Never put words in the reader's head: cut any line
+  starting "You know", "You've probably", "That's what you'd say too".
+- Hopkins rule: no claim the reader can argue with. No adjective doing the work
+  a fact should do. If a line persuades, cut it. If it reports, keep it.
+- One metaphor per post at most, and only if picturable instantly. Never extend
+  it into a scene.
+- "Dude." opens a sentence, never closes one. Once, maybe twice, and not every
+  post.
+- Lon takes calls. People reach out to him. He never "makes a call" or "reaches
+  out". The reader books a Ramble; Lon shows up.
+- Say "spouse" when generic. A caller's own quote keeps the word they used.
+- Change every client name. Member numbers (#2944, Ramble #507) are preferred.
+
+### Banned, without exception
+- The word "burnout", ever.
+- "Here's what nobody tells you" and any AI-cliche setup.
+- Telling the reader to re-read anything, in any form.
+- Em-dashes, except inside a direct quote.
+- "genuinely", "honestly", "straightforward".
+- Inspiration before confrontation.
+- Scarcity closes.
+- Any line explaining the mechanism ("this is a mirror", "notice how").
+- Lists of tips, frameworks or steps unless the post is explicitly a savable tool.
+- Closing on pain with no door.
+- Hashtags. None, ever. No link in the body.
+"""
+
+
+_vault_cache = {'posts': None}
+
+
+def vault_examples(n=3):
+    """A few of Lon's real posts, highest engagement first.
+
+    His own instruction is never to cold-draft: imagination-based drafting
+    produces work he rejects. A description of a voice gets you an impression
+    of it; examples get you the voice.
+    """
+    if _vault_cache['posts'] is None:
+        try:
+            path = os.path.join(os.path.dirname(__file__), 'vault.json')
+            with open(path) as f:
+                posts = json.load(f)
+            good = [p for p in posts
+                    if 600 <= p.get('char_count', 0) <= 2200 and p.get('comments', 0) > 0]
+            good.sort(key=lambda p: p.get('comments', 0), reverse=True)
+            _vault_cache['posts'] = good[:40]
+        except Exception:
+            _vault_cache['posts'] = []
+    picks = _vault_cache['posts'][:n]
+    if not picks:
+        return ''
+    body = '\n\n---\n\n'.join(p['text'].strip() for p in picks)
+    return f"""
+## HIS ACTUAL POSTS — match this, do not imitate a description of it
+These are real posts Lon wrote, among his best performing. Match their rhythm,
+their line breaks, their bluntness and their restraint. Do not reuse their
+content.
+
+{body}
+"""
+
+
 def extract_text(msg):
     """Pull the text content from a Claude response, skipping thinking blocks."""
     for block in msg.content:
@@ -2056,6 +2189,8 @@ def rambles_generate():
     # point he wants to make rather than to whatever the model found most
     # interesting on its own.
     angle = (data.get('angle') or '').strip()
+    length_target = LENGTH_TARGETS.get(data.get('length'), LENGTH_TARGETS['medium'])
+    examples = vault_examples(3)
     angle_block = (f'''## THE ANGLE — this is what the post is about
 {angle}
 
@@ -2064,11 +2199,17 @@ striking that does not serve it, leave it out.
 
 ''' if angle else '')
 
+    # Style 1 is stricter than the old rule here and wins: change the name, do
+    # not merely drop the surname. The earlier version said "first name only",
+    # which read as permission to keep it — and did.
     privacy = ("""
 ## PRIVACY — non-negotiable
 This is a real private conversation with a real person.
-- Use a first name only, never a surname. A hometown is allowed; nothing else that identifies them.
+- CHANGE THE NAME. Never use the name said in the transcript, first or last.
+  A member number is preferred ("Normal 40 member #2944", "Ramble #507"); a
+  clearly different first name is acceptable. Never the real one.
 - No employer, job title, school, or any detail that would single them out.
+  Tenure, month and round numbers are fine and are what make it land.
 - Never imply the person endorsed anything.
 - If the story cannot be told without identifying them, tell it as a composite
   and say nothing that pins it to one person.
@@ -2084,15 +2225,13 @@ This is a real private conversation with a real person.
 {voice}
 
 {cal}
+{privacy}{N40_LINKEDIN_STYLE_1}
+{examples}
+{angle_block}The seed is in this transcript — a line the person actually said, a turn they
+took, a thing they admitted. Build the post on that. Do not summarise the call
+and do not list what was discussed.
 
-{algo}
-{privacy}
-{angle_block}Find the one moment in this transcript that serves that angle hardest — a line
-the person said, a turn they took, a thing they admitted. Build the post around
-that. Do not summarise the call and do not list what was discussed.
-
-Target 1,100-1,500 characters. Open with a hook under 140 characters. End with
-a question that invites a story. No URLs, no links, no hashtags beyond three.
+LENGTH: {length_target}
 
 Return ONLY valid JSON: {{"postText": "the post"}}""",
             messages=[{'role': 'user',
