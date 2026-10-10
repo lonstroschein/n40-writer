@@ -2199,20 +2199,18 @@ striking that does not serve it, leave it out.
 
 ''' if angle else '')
 
-    # Style 1 is stricter than the old rule here and wins: change the name, do
-    # not merely drop the surname. The earlier version said "first name only",
-    # which read as permission to keep it — and did.
+    # Lon's standing rule for Real Stories: real first name and hometown, never
+    # a surname or employer. He reviews every post before it goes out and
+    # changes names himself where a story needs it.
     privacy = ("""
-## PRIVACY — non-negotiable
+## NAMING
 This is a real private conversation with a real person.
-- CHANGE THE NAME. Never use the name said in the transcript, first or last.
-  A member number is preferred ("Normal 40 member #2944", "Ramble #507"); a
-  clearly different first name is acceptable. Never the real one.
-- No employer, job title, school, or any detail that would single them out.
-  Tenure, month and round numbers are fine and are what make it land.
+- Real FIRST NAME is fine, and so is their hometown and state. Use them —
+  they are what make the story land as a real person rather than a type.
+- NEVER a surname. Never their employer, their job title, or their school.
 - Never imply the person endorsed anything.
-- If the story cannot be told without identifying them, tell it as a composite
-  and say nothing that pins it to one person.
+- A member number ("Ramble #507") is a good alternative when the story is
+  raw enough that a name would expose them.
 """ if is_client_call else "")
 
     def do_call():
