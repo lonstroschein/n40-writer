@@ -52,7 +52,7 @@ window.addEventListener('load', function() {
     --border-active: rgba(64,89,173,0.45);
     --danger: #E05050;
     --success: #50C878;
-    --orange: #FF914D;
+    --orange: #FF6600;
   }
 
   body {
@@ -306,7 +306,7 @@ window.addEventListener('load', function() {
 <div id="welcomeScreen" style="display:none; position:fixed; inset:0; z-index:9999; background:var(--bg); align-items:center; justify-content:center;">
   <div style="max-width:480px; width:90%; padding:40px;">
     <div style="text-align:center; margin-bottom:32px;">
-      <div style="font-family:'Oswald','Arial Narrow',sans-serif; font-size:32px; font-weight:700; letter-spacing:1px; margin-bottom:4px;">N<span style="display:inline-block; width:0.20em; height:0.20em; background:#FF914D; margin:0 0.06em; vertical-align:baseline;"></span>40 <span style="font-weight:400; font-size:20px; color:var(--text-dim); letter-spacing:2px;">CONTENT ENGINE</span></div>
+      <div style="font-family:'Oswald','Arial Narrow',sans-serif; font-size:32px; font-weight:700; letter-spacing:1px; margin-bottom:4px;">N<span style="display:inline-block; width:0.20em; height:0.20em; background:#FF6600; margin:0 0.06em; vertical-align:baseline;"></span>40 <span style="font-weight:400; font-size:20px; color:var(--text-dim); letter-spacing:2px;">CONTENT ENGINE</span></div>
       <div style="width:42px; height:3px; background:var(--orange); margin:16px auto;"></div>
     </div>
 
@@ -370,7 +370,7 @@ window.addEventListener('load', function() {
           <input type="text" id="proKeyInput" placeholder="Pro key" style="flex:1; padding:10px; font-size:14px; border-radius:4px; border:1px solid var(--border); background:var(--bg-input); color:var(--text);">
           <button class="btn btn-primary" onclick="verifyProKey()">Unlock</button>
         </div>
-        <div id="proKeyError" style="color:#FF914D; font-size:13px; margin-top:6px;"></div>
+        <div id="proKeyError" style="color:#FF6600; font-size:13px; margin-top:6px;"></div>
       </div>
 
       <div style="display:flex; gap:12px;">
@@ -871,7 +871,7 @@ function updateSoundCount(textareaId, countId) {
   var n = el.value.length;
   var countEl = document.getElementById(countId);
   countEl.textContent = n.toLocaleString() + ' / ' + limit.toLocaleString();
-  countEl.style.color = n >= limit ? '#FF914D' : 'var(--text-faint)';
+  countEl.style.color = n >= limit ? '#FF6600' : 'var(--text-faint)';
 }
 
 function showProKeyPrompt() {
@@ -1149,7 +1149,7 @@ function showError(msg) {
   var el = document.getElementById('dynQHint');
   if (el) {
     el.textContent = msg;
-    el.style.color = '#FF914D';
+    el.style.color = '#FF6600';
     el.style.fontStyle = 'normal';
     el.style.fontWeight = '600';
   }
@@ -1381,11 +1381,12 @@ async function generateContent() {
 function colors(mode) {
   const d = mode === 'dark';
   return {
-    bg: d ? '#080810' : '#FAFAF7',
-    card: d ? '#0E0E1A' : '#FFFFFF',
-    text: d ? '#F5EEE2' : '#1A1A1A',
-    dim: d ? '#C8BCA8' : '#6B6B6B',
-    gold: '#D4A040',
+    bg: d ? '#101109' : '#F7F6F2',
+    card: d ? '#17180F' : '#FFFFFF',
+    text: d ? '#F7F6F2' : '#16170F',
+    dim: d ? '#A9B4C2' : '#766153',
+    gold: d ? '#7C90E0' : '#4059AD',
+    orange: '#FF6600',
     border: d ? 'rgba(212,160,64,0.2)' : 'rgba(212,160,64,0.3)',
     stripe: d ? '#0A0A16' : '#F0EDE6',
     red: d ? '#8B4040' : '#CC4444',
@@ -1394,14 +1395,14 @@ function colors(mode) {
 }
 
 function baseCSS(c) {
-  return `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+  return `@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap');
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{width:1080px;height:1080px;background:${c.bg};font-family:'DM Sans',sans-serif;color:${c.text};padding:72px 72px 52px;display:flex;flex-direction:column;}
-  .tag{font-family:'DM Mono',monospace;font-size:15px;color:${c.gold};text-transform:uppercase;letter-spacing:4px;margin-bottom:20px;}
+  body{width:1080px;height:1080px;background:${c.bg};font-family:'Newsreader',Georgia,serif;color:${c.text};padding:72px 72px 52px;display:flex;flex-direction:column;}
+  .tag{font-family:'Oswald',sans-serif;font-size:15px;color:${c.gold};text-transform:uppercase;letter-spacing:4px;margin-bottom:20px;}
   h1{font-size:64px;font-weight:800;line-height:1.08;margin-bottom:16px;}
   .sub{font-size:28px;color:${c.dim};margin-bottom:24px;line-height:1.25;font-weight:500;}
   .footer{margin-top:auto;padding-top:12px;display:flex;justify-content:space-between;align-items:center;}
-  .footer span{font-family:'DM Mono',monospace;font-size:13px;color:${c.dim};}
+  .footer span{font-family:'Oswald',sans-serif;font-size:13px;color:${c.dim};}
   .footer .site{color:${c.gold};}`;
 }
 
@@ -1424,16 +1425,16 @@ function buildInfographicHTML(template, info, mode) {
     case 'quote': {
       // ONE powerful line on a branded photo — maximum impact
       const line = info.quote || info.items?.[0] || info.title || '';
-      const css = `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+      const css = `@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap');
         *{margin:0;padding:0;box-sizing:border-box;}
-        body{width:1080px;height:1080px;position:relative;font-family:'DM Sans',sans-serif;overflow:hidden;}
+        body{width:1080px;height:1080px;position:relative;font-family:'Newsreader',Georgia,serif;overflow:hidden;}
         .bg{position:absolute;inset:0;background:url('/images/bg-field.png') center/cover no-repeat;}
         .overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.75) 100%);}
         .content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:0 80px 120px;}
-        .tag{font-family:'DM Mono',monospace;font-size:14px;color:${c.gold};text-transform:uppercase;letter-spacing:5px;margin-bottom:28px;}
+        .tag{font-family:'Oswald',sans-serif;font-size:14px;color:${c.gold};text-transform:uppercase;letter-spacing:5px;margin-bottom:28px;}
         .quote{font-size:72px;font-weight:800;color:#FFFFFF;line-height:1.1;text-shadow:0 4px 20px rgba(0,0,0,0.6);max-width:920px;}
         .footer{position:absolute;bottom:44px;left:80px;right:80px;display:flex;justify-content:space-between;}
-        .footer span{font-family:'DM Mono',monospace;font-size:13px;color:rgba(255,255,255,0.6);}
+        .footer span{font-family:'Oswald',sans-serif;font-size:13px;color:rgba(255,255,255,0.6);}
         .footer .site{color:${c.gold};}`;
       const body = `<div class="bg"></div><div class="overlay"></div><div class="content"><div class="tag">The Normal 40</div><div class="quote">${line}</div></div><div class="footer"><span>Lon Stroschein</span><span class="site">The Normal 40</span></div>`;
       return wrap(css, body);
@@ -1460,12 +1461,12 @@ function buildInfographicHTML(template, info, mode) {
 
     case 'funnel': {
       // 3-4 stages, massive text
-      const golds = ['#D4A040', '#C49035', '#B4802A', '#A47020'];
+      const golds = ['#7C90E0', '#6B7FD0', '#5A6EC0', '#4059AD'];
       const stageItems = items.slice(0, 4);
       const css = base + `
         h1{text-align:center;margin-bottom:48px;}
         .funnel{flex:1;display:flex;flex-direction:column;gap:20px;align-items:center;justify-content:center;}
-        .stage{display:flex;align-items:center;gap:32px;padding:36px 48px;border-radius:20px;color:#080810;font-weight:700;}
+        .stage{display:flex;align-items:center;gap:32px;padding:36px 48px;border-radius:20px;color:#16170F;font-weight:700;}
         .stage .n{font-size:56px;font-weight:800;opacity:0.4;min-width:56px;}
         .stage .l{font-size:40px;font-weight:700;}`;
       let body = tag + title;
@@ -1486,7 +1487,7 @@ function buildInfographicHTML(template, info, mode) {
         h1{margin-bottom:40px;}
         .rows{flex:1;display:flex;flex-direction:column;gap:20px;justify-content:center;}
         .row{background:${c.card};border:1px solid ${c.border};border-radius:16px;padding:32px 36px;display:flex;align-items:center;gap:32px;}
-        .rl{font-family:'DM Mono',monospace;font-size:18px;color:${c.gold};text-transform:uppercase;letter-spacing:3px;min-width:140px;font-weight:500;}
+        .rl{font-family:'Oswald',sans-serif;font-size:18px;color:${c.gold};text-transform:uppercase;letter-spacing:3px;min-width:140px;font-weight:500;}
         .rc{font-size:36px;color:${c.dim};font-weight:600;}`;
       let body = tag + title + '<div class="rows">';
       steps.forEach((s, i) => {
@@ -1941,7 +1942,7 @@ function buildBrandedImageHTML(data, photo) {
   return `<!DOCTYPE html><html><head><style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
     *{margin:0;padding:0;box-sizing:border-box;}
-    body{width:1080px;height:1080px;position:relative;font-family:'DM Sans',sans-serif;overflow:hidden;}
+    body{width:1080px;height:1080px;position:relative;font-family:'Newsreader',Georgia,serif;overflow:hidden;}
     .bg{position:absolute;inset:0;background:url('${bgData}') center/cover no-repeat;}
     .overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.15) 0%,rgba(0,0,0,0.4) 40%,rgba(0,0,0,0.5) 100%);}
     .content{position:absolute;top:180px;left:80px;right:120px;z-index:2;}
@@ -1983,20 +1984,20 @@ function buildCarouselHTML(data) {
   }).join('');
 
   return `<!DOCTYPE html><html><head><style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap');
     *{margin:0;padding:0;box-sizing:border-box;}
-    body{width:1080px;font-family:'DM Sans',sans-serif;background:#080810;color:#F5EEE2;}
+    body{width:1080px;font-family:'Newsreader',Georgia,serif;background:#101109;color:#F7F6F2;}
     .slide{width:1080px;height:1080px;padding:88px 96px 80px;display:flex;flex-direction:column;position:relative;page-break-after:always;}
-    .slide-tag{font-family:'DM Mono',monospace;font-size:18px;color:#D4A040;text-transform:uppercase;letter-spacing:3px;margin-bottom:24px;}
+    .slide-tag{font-family:'Oswald',sans-serif;font-size:18px;color:#7C90E0;text-transform:uppercase;letter-spacing:3px;margin-bottom:24px;}
     .slide-title{font-size:56px;font-weight:700;line-height:1.15;flex:1;display:flex;align-items:center;}
-    .slide-sub{font-size:24px;color:#C8BCA8;margin-top:16px;}
-    .slide-num{font-family:'DM Mono',monospace;font-size:72px;font-weight:800;color:#D4A040;opacity:0.3;margin-bottom:8px;}
-    .slide-heading{font-size:40px;font-weight:700;margin-bottom:20px;color:#D4A040;}
-    .slide-body{font-size:28px;color:#C8BCA8;line-height:1.5;flex:1;}
+    .slide-sub{font-size:24px;color:#A9B4C2;margin-top:16px;}
+    .slide-num{font-family:'Oswald',sans-serif;font-size:72px;font-weight:800;color:#7C90E0;opacity:0.3;margin-bottom:8px;}
+    .slide-heading{font-family:'Oswald',sans-serif;font-size:40px;font-weight:700;margin-bottom:20px;color:#7C90E0;border-bottom:4px solid #FF6600;padding-bottom:12px;display:inline-block;}
+    .slide-body{font-size:28px;color:#F7F6F2;line-height:1.5;flex:1;}
     .slide-cta-text{font-size:44px;font-weight:600;line-height:1.4;flex:1;display:flex;align-items:center;text-align:center;justify-content:center;}
     .slide-footer{margin-top:auto;padding-top:20px;display:flex;justify-content:space-between;}
-    .slide-footer span{font-family:'DM Mono',monospace;font-size:16px;color:#C8BCA8;}
-    .slide-footer .brand{color:#D4A040;}
+    .slide-footer span{font-family:'Oswald',sans-serif;font-size:16px;color:#A9B4C2;}
+    .slide-footer .brand{color:#7C90E0;}
   </style></head><body>${slideHTML}</body></html>`;
 }
 
