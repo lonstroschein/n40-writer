@@ -254,6 +254,26 @@ def _drive(path, **params):
     return r.json()
 
 
+def fathom_transcript_text(tr):
+    """Flatten a Fathom transcript into speaker-labelled lines.
+
+    Each segment's `speaker` is an object, not a string — {display_name,
+    matched_calendar_invitee_email} — so naive formatting renders the whole
+    dict into the text. Only the display name is used; the matched email is
+    the invitee's real address and has no business in a writing prompt.
+    """
+    if isinstance(tr, str):
+        return tr
+    lines = []
+    for seg in (tr or []):
+        spk = seg.get('speaker')
+        name = spk.get('display_name', '') if isinstance(spk, dict) else (spk or '')
+        text = (seg.get('text') or '').strip()
+        if text:
+            lines.append(f'{name}: {text}' if name else text)
+    return '\n'.join(lines)
+
+
 def docx_to_text(blob):
     """Pull readable text out of a .docx without a parsing library — a .docx is
     a zip, and the paragraph text lives in w:t elements."""
@@ -1809,12 +1829,14 @@ def rambles_recent():
         cursor = body.get('next_cursor')
         if not cursor:
             break
+    # Fathom's identifier is `recording_id`, and it is an int — not `id` or
+    # `meeting_id`, which do not exist on the object at all.
     out = [{
         'source': 'fathom',
-        'id': str(m.get('id') or m.get('meeting_id') or ''),
+        'id': str(m.get('recording_id') or ''),
         'title': m.get('title') or m.get('meeting_title') or 'Untitled call',
         'date': (m.get('recording_start_time') or m.get('created_at') or '')[:10],
-    } for m in items]
+    } for m in items if m.get('recording_id')]
     out.sort(key=lambda x: x['date'], reverse=True)
     return jsonify({'rambles': out, 'days': RECENT_DAYS})
 
@@ -1873,16 +1895,31 @@ def rambles_transcript():
 
     def do_call():
         if source == 'fathom':
-            r = requests.get(f'{FATHOM_BASE}/meetings',
-                             headers={'X-Api-Key': FATHOM_API_KEY},
-                             params={'include_transcript': 'true'}, timeout=90)
-            r.raise_for_status()
-            for m in r.json().get('items', []):
-                if str(m.get('id') or m.get('meeting_id')) == str(rid):
-                    tr = m.get('transcript')
-                    text = tr if isinstance(tr, str) else '\n'.join(
-                        f"{s.get('speaker','')}: {s.get('text','')}" for s in (tr or []))
-                    return {'text': text, 'title': m.get('title') or ''}
+            # There is no filter for a single recording — passing recording_id
+            # is ignored and still returns a full page — so page until it turns
+            # up. Transcripts are large, so pages stay small.
+            after = time.strftime('%Y-%m-%dT%H:%M:%SZ',
+                                  time.gmtime(time.time() - RECENT_DAYS * 86400))
+            cursor = None
+            for _ in range(40):
+                params = {'created_after': after, 'include_transcript': 'true', 'limit': 5}
+                if cursor:
+                    params['cursor'] = cursor
+                r = requests.get(f'{FATHOM_BASE}/meetings',
+                                 headers={'X-Api-Key': FATHOM_API_KEY},
+                                 params=params, timeout=120)
+                if r.status_code == 429:
+                    time.sleep(int(r.headers.get('Retry-After') or 5))
+                    continue
+                r.raise_for_status()
+                body = r.json()
+                for m in body.get('items', []):
+                    if str(m.get('recording_id')) == str(rid):
+                        return {'text': fathom_transcript_text(m.get('transcript')),
+                                'title': m.get('title') or m.get('meeting_title') or ''}
+                cursor = body.get('next_cursor')
+                if not cursor:
+                    break
             return {'error': 'That call is no longer in the recent window.'}
         blob = requests.get(f'https://www.googleapis.com/drive/v3/files/{rid}',
                             headers={'Authorization': 'Bearer ' + _google_access_token()},
