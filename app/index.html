@@ -999,8 +999,16 @@ window.addEventListener('load', function() {
     </div>
 
     <div class="card" style="padding:20px 28px; margin-bottom:16px;">
-      <div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Transcript</div>
-      <div id="rambleTranscript" style="font-size:13.5px; color:var(--text-dim); line-height:1.65; white-space:pre-wrap; max-height:220px; overflow-y:auto;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:12px;">
+        <div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Transcript</div>
+        <div id="rambleTranscriptMeta" style="font-size:11px; font-family:var(--mono); color:var(--text-faint);"></div>
+      </div>
+      <div id="rambleTranscript" style="font-size:13.5px; color:var(--text); line-height:1.65; white-space:pre-wrap; max-height:420px; overflow-y:auto;"></div>
+    </div>
+
+    <div class="card" id="rambleInsights" style="padding:20px 28px; margin-bottom:16px;">
+      <div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px;">What stood out</div>
+      <div id="rambleInsightsBody" style="font-size:14px; color:var(--text-dim);">Reading the call...</div>
     </div>
 
     <div class="btn-row" style="justify-content:flex-start; margin-bottom:16px;">
@@ -2967,7 +2975,7 @@ function renderRambles(list, emptyMsg) {
   }
   el.innerHTML = list.map(function(r, i) {
     var meta = [r.date, r.person, r.source === 'fathom' ? 'Fathom' : 'Archive'].filter(Boolean).join(' · ');
-    return '<div class="card" style="padding:16px 24px; margin-bottom:10px; cursor:pointer;" onclick="pickRamble(' + i + ')">' +
+    return '<div class="card" id="rambleCard' + i + '" style="padding:16px 24px; margin-bottom:10px; cursor:pointer;" onclick="pickRamble(' + i + ')">' +
       '<div style="display:flex; justify-content:space-between; gap:16px; align-items:center;">' +
       '<div style="flex:1; min-width:0;">' +
       '<div style="font-size:15px; margin-bottom:4px;">' + escapeHTML(r.title || 'Untitled') + '</div>' +
@@ -3040,12 +3048,20 @@ async function pickRamble(i) {
     var d = await res.json();
     if (d.error) throw new Error(d.error);
     RB.transcript = d.text || '';
-    document.getElementById('rambleTranscript').textContent = RB.transcript.slice(0, 4000);
+    document.getElementById('rambleTranscript').textContent = RB.transcript;
+    document.getElementById('rambleTranscriptMeta').textContent =
+      RB.transcript.length.toLocaleString() + ' characters · full transcript';
     document.getElementById('rambleSourceLabel').textContent =
       [r.date, r.person, r.title].filter(Boolean).join(' · ');
-    document.getElementById('rambleWriter').style.display = 'block';
+    var writer = document.getElementById('rambleWriter');
+    writer.style.display = 'block';
     document.getElementById('rambleOutput').style.display = 'none';
-    document.getElementById('rambleWriter').scrollIntoView({ behavior: 'smooth' });
+    // Sit the writer directly under the card that was picked, rather than at
+    // the foot of the page below every other result.
+    var card = document.getElementById('rambleCard' + i);
+    if (card) card.insertAdjacentElement('afterend', writer);
+    writer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    loadRambleInsights();
   } catch (e) { alert('Transcript: ' + e.message); }
   finally { rambleBusy(false); }
 }
@@ -3059,6 +3075,49 @@ function countRambleChars() {
   var el = document.getElementById('rambleCharCount');
   el.textContent = n.toLocaleString() + ' / 1,500';
   el.style.color = n > 1500 ? 'var(--danger)' : 'var(--text-faint)';
+}
+
+// Quotes and themes load after the transcript is already on screen, so the
+// call can be read while this is still thinking rather than blocking on it.
+async function loadRambleInsights() {
+  var body = document.getElementById('rambleInsightsBody');
+  body.innerHTML = '<span style="color:var(--text-faint);">Reading the call...</span>';
+  try {
+    var res = await safeFetch(API + '/rambles/insights', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: RB.transcript })
+    });
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+
+    var quotes = (d.quotes || []).map(function (q) {
+      // A quote that could not be found verbatim is labelled, not hidden —
+      // these get attributed to a real person, so paraphrase has to be visible.
+      var flag = q.verbatim === false
+        ? '<div style="font-size:11px; font-family:var(--mono); color:var(--danger); margin-top:4px;">NOT VERBATIM — check the transcript before using</div>'
+        : '';
+      var edge = q.verbatim === false ? 'var(--danger)' : 'var(--orange)';
+      return '<div style="margin-bottom:14px; padding-left:14px; border-left:3px solid ' + edge + ';">' +
+        '<div style="font-size:15px; color:var(--text); line-height:1.55;">' + escapeHTML(q.text || '') + '</div>' +
+        (q.context ? '<div style="font-size:12px; color:var(--text-faint); margin-top:4px;">' + escapeHTML(q.context) + '</div>' : '') +
+        flag + '</div>';
+    }).join('');
+
+    var themes = (d.themes || []).map(function (t) {
+      return '<div style="margin-bottom:12px;">' +
+        '<div style="font-size:14px; font-weight:600; color:var(--gold);">' + escapeHTML(t.theme || '') + '</div>' +
+        '<div style="font-size:13px; color:var(--text-dim); line-height:1.55;">' + escapeHTML(t.why || '') + '</div>' +
+        '</div>';
+    }).join('');
+
+    body.innerHTML =
+      '<div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Three quotes</div>' +
+      (quotes || '<div style="color:var(--text-faint);">None found.</div>') +
+      '<div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin:18px 0 10px;">Two themes</div>' +
+      (themes || '<div style="color:var(--text-faint);">None found.</div>');
+  } catch (e) {
+    body.innerHTML = '<span style="color:var(--danger);">Could not read the call: ' + escapeHTML(e.message) + '</span>';
+  }
 }
 
 async function rambleGenerate() {

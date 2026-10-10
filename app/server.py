@@ -1929,6 +1929,69 @@ def rambles_transcript():
     return run_as_job(do_call)
 
 
+@app.route('/api/rambles/insights', methods=['POST'])
+@rate_limited
+@require_admin_key
+def rambles_insights():
+    """The three hardest-hitting things the client said, and two themes worth
+    writing about.
+
+    Quotes must be verbatim and must come from the client, not from Lon — the
+    useful material is what the other person admitted, not what the coach
+    said. Themes are judged against the avatar: useful, helpful, fascinating
+    to an elite performer who looks fine on paper and is not.
+    """
+    data = request.json or {}
+    transcript = (data.get('transcript') or '').strip()
+    if not transcript:
+        return jsonify({'error': 'No transcript provided.'}), 400
+
+    avatar, voice, cal, algo, user_name = get_contexts(data)
+    client = get_client()
+
+    def do_call():
+        msg = call_model(client,
+            model=HEAVY_MODEL, max_tokens=2000,
+            system=f"""You are reading a transcript of a real conversation between {user_name} and one other person.
+
+{avatar}
+
+QUOTES — pick exactly three.
+- Verbatim. Word for word from the transcript. Never tidied, never paraphrased.
+- From the OTHER person, not {user_name}. What the client admitted is the
+  material; what the coach said is not.
+- Pick the three that land hardest: the admission, the thing said reluctantly,
+  the line that gives away more than intended. Not the tidiest summary line.
+- If a quote needs context to make sense, add one short line of it.
+
+THEMES — pick exactly two.
+- A theme is not a topic. "Career change" is a topic. "You can be good at a
+  job and still have outgrown it" is a theme.
+- Judge each against the avatar above: would this be USEFUL, HELPFUL and
+  FASCINATING to someone winning on paper and quietly trapped?
+- Say in one line why it would land with that reader.
+
+Return ONLY valid JSON:
+{{"quotes": [{{"text": "...", "context": "..."}}],
+  "themes": [{{"theme": "...", "why": "..."}}]}}""",
+            messages=[{'role': 'user', 'content': transcript}]
+        )
+        out = parse_json_response(extract_text(msg))
+
+        # Check every quote actually appears in the transcript. Asking for
+        # verbatim is not enough on its own — in testing one of three came
+        # back smoothed into a line the person never said in one breath. These
+        # get attributed to a real client in public, so an unverified quote is
+        # marked rather than passed off as real.
+        flat = ' '.join(transcript.split()).lower()
+        for q in out.get('quotes', []):
+            probe = ' '.join((q.get('text') or '').split()).lower()
+            q['verbatim'] = bool(probe) and probe in flat
+        return out
+
+    return run_as_job(do_call)
+
+
 @app.route('/api/rambles/generate', methods=['POST'])
 @rate_limited
 @require_admin_key
@@ -1982,7 +2045,7 @@ a question that invites a story. No URLs, no links, no hashtags beyond three.
 
 Return ONLY valid JSON: {{"postText": "the post"}}""",
             messages=[{'role': 'user',
-                       'content': f'Conversation: {data.get("title") or "untitled"}\n\n{transcript[:120000]}'}]
+                       'content': f'Conversation: {data.get("title") or "untitled"}\n\n{transcript}'}]
         )
         return parse_json_response(extract_text(msg))
 
