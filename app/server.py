@@ -217,6 +217,22 @@ FATHOM_BASE = 'https://api.fathom.ai/external/v1'
 RECENT_DAYS = int(os.environ.get('RECENT_DAYS', '60'))
 DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
+# A Fathom export holds a summary and then the transcript. A summary-only file
+# looks the same from the outside, and writing a post from one produces a post
+# about a recap rather than about what somebody actually said.
+#
+# Byte size does not separate them: measured across the archive, a 13.5KB file
+# held 19,377 characters of real transcript while a 13.9KB file held 1,583
+# characters of summary, because .docx size counts images and formatting.
+# Extracted text length does separate them cleanly — summaries measured 24 to
+# 4,568 characters, transcripts started at 18,049 — so 6,000 sits in open
+# space between the two.
+MIN_TRANSCRIPT_CHARS = int(os.environ.get('MIN_TRANSCRIPT_CHARS', '6000'))
+
+# Names that say outright this is not a single call transcript.
+_SUMMARY_NAME = re.compile(r'summary|recap|notes?\b|highlights|itinerary|agenda', re.I)
+_COMPILATION_NAME = re.compile(r'^all[ _-]|combined|compilation', re.I)
+
 _google_token = {'value': '', 'expires': 0}
 _google_lock = threading.Lock()
 
@@ -252,6 +268,24 @@ def _drive(path, **params):
                      params=params, timeout=60)
     r.raise_for_status()
     return r.json()
+
+
+def _drop_from_index(file_id):
+    """Remove a file the fetch proved was a summary, so it stops appearing.
+
+    The index cannot tell without downloading, and downloading all 1,589 would
+    undo the point of a one-minute rebuild. Instead the list corrects itself as
+    files are opened, and a reindex re-adds nothing that has been disproved
+    this way only because the name and size filters already ran.
+    """
+    with _store_lock:
+        idx = store_read('rambles_index', {})
+        files = idx.get('files') or []
+        kept = [f for f in files if f.get('id') != file_id]
+        if len(kept) != len(files):
+            idx['files'] = kept
+            idx['dropped_summaries'] = idx.get('dropped_summaries', 0) + 1
+            store_write('rambles_index', idx)
 
 
 def fathom_transcript_text(tr):
@@ -340,7 +374,7 @@ def build_rambles_index():
 
     docs = _drive_list_all(
         f"mimeType = '{DOCX_MIME}' and trashed = false",
-        'id, name, parents, modifiedTime')
+        'id, name, parents, modifiedTime, size')
 
     out = []
     for f in docs:
@@ -351,7 +385,14 @@ def build_rambles_index():
         if not place:
             continue                      # outside the ramble corpora
         corpus, trail = place
-        m = re.search(r'(\d{4})[.\-_](\d{2})[.\-_](\d{2})', f['name'])
+        name = f['name']
+        if _SUMMARY_NAME.search(name) or _COMPILATION_NAME.search(name):
+            continue
+        # Nothing this small has ever been a real transcript; it is the cheap
+        # half of the test, with the authoritative one at fetch time.
+        if int(f.get('size') or 0) < 10000:
+            continue
+        m = re.search(r'(\d{4})[.\-_](\d{2})[.\-_](\d{2})', name)
         out.append({
             'id': f['id'], 'name': f['name'], 'path': trail, 'corpus': corpus,
             'person': trail.split('/')[1] if '/' in trail else trail,
@@ -2127,7 +2168,16 @@ def rambles_transcript():
         blob = requests.get(f'https://www.googleapis.com/drive/v3/files/{rid}',
                             headers={'Authorization': 'Bearer ' + _google_access_token()},
                             params={'alt': 'media'}, timeout=120).content
-        return {'text': docx_to_text(blob)}
+        text = docx_to_text(blob)
+        # The authoritative check. The index filters on name and byte size,
+        # which are free but only approximate; this is the one that actually
+        # knows, and nothing reaches the model without passing it.
+        if len(text) < MIN_TRANSCRIPT_CHARS:
+            _drop_from_index(rid)
+            return {'error': f'That file is a summary, not a transcript '
+                             f'({len(text):,} characters). Removed from the list — '
+                             f'pick another.'}
+        return {'text': text}
 
     return run_as_job(do_call)
 
