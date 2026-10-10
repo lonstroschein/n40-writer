@@ -444,8 +444,15 @@ line neither reveals something nor pulls them forward, cut it.
   it into a scene.
 - "Dude." opens a sentence, never closes one. Once, maybe twice, and not every
   post.
-- Lon takes calls. People reach out to him. He never "makes a call" or "reaches
-  out". The reader books a Ramble; Lon shows up.
+- DIRECTION OF THE CALL. Nobody takes Lon's call. He takes theirs. They ask for
+  a Ramble, he shows up, and he gets them moving. Never write that he called
+  someone, rang them, reached out, got in touch, checked in on them, invited
+  them on, or sat down with them. Write that they called, they asked for a
+  Ramble, they booked one, they reached out to him. "On his Ramble." "He
+  called." "He asked for the call." This is not a formality — it is the whole
+  relationship. They came to him.
+- And he is not a listener. He moves them. The post should leave the sense that
+  something shifted on that call, not that two people had a nice talk.
 - Say "spouse" when generic. A caller's own quote keeps the word they used.
 - Change every client name. Member numbers (#2944, Ramble #507) are preferred.
 
