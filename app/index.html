@@ -967,13 +967,22 @@ window.addEventListener('load', function() {
 
   <!-- Three ways in -->
   <div class="card" style="padding:24px 36px;">
-    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <!-- Three entry points, each on its own line and labelled. Previously the
+         search sat inline after the two buttons and read as an empty box. -->
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:18px;">
       <button class="btn btn-primary" onclick="rambleRecent()">Recent Ramble</button>
+      <span style="font-size:12.5px; color:var(--text-faint);">Anything Fathom recorded in the last 60 days</span>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:18px;">
       <button class="btn btn-secondary" onclick="rambleRandom()">Random Ramble</button>
-      <div style="display:flex; gap:8px; flex:1; min-width:260px;">
-        <input type="text" id="rambleSearch" placeholder="Search the archive — e.g. lost parent"
-               style="flex:1;" onkeydown="if(event.key==='Enter')rambleSearch()">
-        <button class="btn btn-secondary" onclick="rambleSearch()">Search</button>
+      <span style="font-size:12.5px; color:var(--text-faint);">One client call at random from the Drive archive</span>
+    </div>
+    <div style="padding-top:18px; border-top:1px solid var(--border);">
+      <div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Search the Drive archive</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <input type="text" id="rambleSearch" placeholder="Type a topic — e.g. lost parent, sold the company, Sunday dread"
+               style="flex:1; min-width:240px;" onkeydown="if(event.key==='Enter')rambleSearch()">
+        <button class="btn btn-primary" onclick="rambleSearch()">Search</button>
       </div>
     </div>
     <div style="display:flex; gap:16px; align-items:center; margin-top:14px; flex-wrap:wrap;">
