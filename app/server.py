@@ -12,6 +12,7 @@ import functools
 import uuid
 import io
 import zipfile
+import html
 import random
 from flask import Flask, request, jsonify, send_from_directory, Response
 
@@ -228,6 +229,24 @@ DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.docu
 # 4,568 characters, transcripts started at 18,049 — so 6,000 sits in open
 # space between the two.
 MIN_TRANSCRIPT_CHARS = int(os.environ.get('MIN_TRANSCRIPT_CHARS', '6000'))
+# Fathom's list does not carry transcript length, and pulling every transcript
+# to measure one would be absurd. Duration is the proxy: a 41 minute call
+# measured ~43,600 characters, so six minutes is about the 6,000 character mark.
+MIN_TRANSCRIPT_MINUTES = float(os.environ.get('MIN_TRANSCRIPT_MINUTES', '6'))
+
+
+def _fathom_minutes(m):
+    """Recorded length in minutes, 0 when the timestamps are unusable."""
+    a = m.get('recording_start_time') or ''
+    b = m.get('recording_end_time') or ''
+    try:
+        from datetime import datetime
+        fmt = '%Y-%m-%dT%H:%M:%S'
+        t0 = datetime.strptime(a[:19], fmt)
+        t1 = datetime.strptime(b[:19], fmt)
+        return max(0.0, (t1 - t0).total_seconds() / 60.0)
+    except Exception:
+        return 0.0
 
 # Names that say outright this is not a single call transcript.
 _SUMMARY_NAME = re.compile(r'summary|recap|notes?\b|highlights|itinerary|agenda', re.I)
@@ -317,7 +336,7 @@ def docx_to_text(blob):
     for para in re.findall(r'<w:p[ >].*?</w:p>', xml, re.S):
         txt = ''.join(re.findall(r'<w:t[^>]*>([^<]*)</w:t>', para)).strip()
         if txt:
-            lines.append(txt)
+            lines.append(html.unescape(txt))
     return '\n'.join(lines)
 
 
@@ -580,6 +599,10 @@ def extract_text(msg):
 
 
 def parse_json_response(text):
+    if not (text or '').strip():
+        raise ValueError('The model returned nothing to parse. '
+                         'Usually means max_tokens ran out before it answered.')
+
     """Parse a JSON object out of a model response.
 
     The prompts all ask for bare JSON, but a model that reasons first will
@@ -2075,14 +2098,22 @@ def rambles_recent():
             break
     # Fathom's identifier is `recording_id`, and it is an int — not `id` or
     # `meeting_id`, which do not exist on the object at all.
-    out = [{
-        'source': 'fathom',
-        'id': str(m.get('recording_id') or ''),
-        'title': m.get('title') or m.get('meeting_title') or 'Untitled call',
-        'date': (m.get('recording_start_time') or m.get('created_at') or '')[:10],
-    } for m in items if m.get('recording_id')]
+    out = []
+    too_short = 0
+    for m in items:
+        if not m.get('recording_id'):
+            continue
+        if _fathom_minutes(m) < MIN_TRANSCRIPT_MINUTES:
+            too_short += 1
+            continue
+        out.append({
+            'source': 'fathom',
+            'id': str(m['recording_id']),
+            'title': m.get('title') or m.get('meeting_title') or 'Untitled call',
+            'date': (m.get('recording_start_time') or m.get('created_at') or '')[:10],
+        })
     out.sort(key=lambda x: x['date'], reverse=True)
-    return jsonify({'rambles': out, 'days': RECENT_DAYS})
+    return jsonify({'rambles': out, 'days': RECENT_DAYS, 'too_short': too_short})
 
 
 @app.route('/api/rambles/search')
@@ -2159,7 +2190,11 @@ def rambles_transcript():
                 body = r.json()
                 for m in body.get('items', []):
                     if str(m.get('recording_id')) == str(rid):
-                        return {'text': fathom_transcript_text(m.get('transcript')),
+                        text = fathom_transcript_text(m.get('transcript'))
+                        if len(text) < MIN_TRANSCRIPT_CHARS:
+                            return {'error': f'That call is too short to write from '
+                                             f'({len(text):,} characters). Pick another.'}
+                        return {'text': text,
                                 'title': m.get('title') or m.get('meeting_title') or ''}
                 cursor = body.get('next_cursor')
                 if not cursor:
@@ -2204,7 +2239,7 @@ def rambles_insights():
 
     def do_call():
         msg = call_model(client,
-            model=HEAVY_MODEL, max_tokens=2000,
+            model=HEAVY_MODEL, max_tokens=8000,
             system=f"""You are reading a transcript of a real conversation between {user_name} and one other person.
 
 {avatar}

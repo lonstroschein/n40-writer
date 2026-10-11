@@ -1002,7 +1002,9 @@ window.addEventListener('load', function() {
   <!-- Results -->
   <div id="rambleResults" style="margin-top:20px;"></div>
 
-  <!-- Writer -->
+  <!-- Writer. It gets relocated next to the chosen result and must be put
+       back here before the results list is re-rendered. -->
+  <div id="rambleWriterHome"></div>
   <div id="rambleWriter" style="display:none; margin-top:24px;">
     <div style="display:flex; gap:12px; align-items:center; margin-bottom:16px;">
       <button class="btn btn-ghost" onclick="backToRambles()">&larr; Back</button>
@@ -1014,7 +1016,7 @@ window.addEventListener('load', function() {
         <div style="font-size:11px; font-family:var(--mono); color:var(--text-faint); text-transform:uppercase; letter-spacing:1px;">Transcript</div>
         <div id="rambleTranscriptMeta" style="font-size:11px; font-family:var(--mono); color:var(--text-faint);"></div>
       </div>
-      <div id="rambleTranscript" style="font-size:13.5px; color:var(--text); line-height:1.65; white-space:pre-wrap; max-height:420px; overflow-y:auto;"></div>
+      <div id="rambleTranscript" style="font-size:13.5px; color:var(--text); line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; max-width:100%; max-height:420px; overflow-y:auto; overflow-x:hidden;"></div>
     </div>
 
     <div class="card" id="rambleInsights" style="padding:20px 28px; margin-bottom:16px;">
@@ -2989,6 +2991,15 @@ async function ramblesInit() {
 function renderRambles(list, emptyMsg) {
   RB.results = list;
   var el = document.getElementById('rambleResults');
+  // The writer gets moved next to whichever card was picked, and that card
+  // lives in here. Rewriting this container would take the writer with it and
+  // leave every element inside it null, so send it home first.
+  var writer = document.getElementById('rambleWriter');
+  var home = document.getElementById('rambleWriterHome');
+  if (writer && home && writer.parentElement !== home) {
+    writer.style.display = 'none';
+    home.appendChild(writer);
+  }
   if (!list.length) {
     el.innerHTML = '<p style="color:var(--text-faint); text-align:center; padding:40px 0;">' + emptyMsg + '</p>';
     return;
